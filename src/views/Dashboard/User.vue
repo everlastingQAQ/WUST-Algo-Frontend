@@ -205,7 +205,7 @@ const getData = async (page: number) => {
         jumppage.value = page;
         data.value = response.data;
         data.value.currentPage = page;
-        data.value.totalPage = Math.ceil(data.value.total / 5);
+        data.value.totalPage = Math.ceil(data.value.total / 10);
     }
     loading.value = false;
 };

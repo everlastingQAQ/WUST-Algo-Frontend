@@ -46,6 +46,18 @@
           <div class="item-indicator">▶</div>
         </router-link>
 
+        <router-link to="/bulletin" class="section navigation-item" active-class="active">
+          <font-awesome-icon icon="fa-solid fa-bullhorn" class="item-icon" />
+          <div class="item-content">
+            <div class="item-title">
+              <span class="zh">公告</span>
+              <span class="en">Bulletin</span>
+            </div>
+            <div class="item-description">查看公告通知</div>
+          </div>
+          <div class="item-indicator">▶</div>
+        </router-link>
+
         <router-link to="/profile" class="section navigation-item" active-class="active" v-if="isLogin">
           <font-awesome-icon icon="fa-solid fa-user" class="item-icon" />
           <div class="item-content">

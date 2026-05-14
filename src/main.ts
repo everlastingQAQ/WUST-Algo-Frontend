@@ -15,7 +15,7 @@ import "@chinese-fonts/maple-mono-cn/dist/MapleMono-CN-Regular/result.css";
 // FontAwesome 图标库
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faUser, faHome, faSun, faMoon, faTrophy, faCrosshairs, faGlobe, faGaugeHigh, faChartLine, faPeopleGroup, faFlag, faStar, faList, faComment, faCalendarDays, } from '@fortawesome/free-solid-svg-icons'
+import { faUser, faHome, faSun, faMoon, faTrophy, faCrosshairs, faGlobe, faGaugeHigh, faChartLine, faPeopleGroup, faFlag, faStar, faList, faComment, faCalendarDays, faBullhorn, faBell, faThumbtack, faArrowRight } from '@fortawesome/free-solid-svg-icons'
 
 // 主题
 import './assets/css/theme.css'
@@ -37,7 +37,11 @@ library.add(
     faStar,
     faList,
     faComment,
-    faCalendarDays
+    faCalendarDays,
+    faBullhorn,
+    faBell,
+    faThumbtack,
+    faArrowRight
 )
 
 const pinia = createPinia()

@@ -278,6 +278,19 @@
             <div class="section-header">
               <div class="header-title">
                 <span class="title-icon">
+                  <font-awesome-icon icon="fa-solid fa-bullhorn" />
+                </span>
+                <span class="title-text">公告</span>
+              </div>
+            </div>
+            <div class="section-secondary-container" style="position: relative;">
+              <BulletinBoard />
+            </div>
+          </div>
+          <div class="section-secondary">
+            <div class="section-header">
+              <div class="header-title">
+                <span class="title-icon">
                   <font-awesome-icon icon="fa-solid fa-trophy" />
                 </span>
                 <span class="title-text">AI总结</span>
@@ -309,6 +322,7 @@ import Analyse from '@/utils/analyse';
 import { useUserStore } from '@/stores/user';
 import Stars from '@/components/Stars.vue';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
+import BulletinBoard from '@/components/BulletinBoard.vue';
 
 const userStore = useUserStore()
 const isLogin = computed(() => userStore.isLogin)

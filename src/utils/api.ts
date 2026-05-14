@@ -340,6 +340,25 @@ export interface CoreContestRankingData {
     totalCount: number;
 }
 
+// Bulletin types
+export interface BulletinInfo {
+    id: number
+    title: string
+    content: string
+    authorId: number
+    authorName: string
+    isPinned: boolean
+    createdAt: number   // Unix seconds
+    updatedAt: number   // Unix seconds
+}
+
+export interface BulletinListResponse {
+    data: BulletinInfo[]
+    total: number
+    page: number
+    pageSize: number
+}
+
 // 通用 API 请求辅助函数
 async function apiCall<T>(
     request: () => Promise<any>,
@@ -547,7 +566,7 @@ export default class API {
             list: async (page: number): Promise<stdResponse<UserProfileListResponse>> => {
                 return apiCall<UserProfileListResponse>(
                     () => axios.get<UserProfileListResponse>('/api/user/profile/list', {
-                        params: { pageNum: page, pageSize: 5 }
+                        params: { pageNum: page, pageSize: 10 }
                     }),
                     (response) => {
                         if (response.status !== 200) return { message: "获取用户列表失败" };
@@ -820,6 +839,87 @@ export default class API {
                         data: [], total: 0
                     }
                 );
+            }
+        },
+        bulletin: {
+            list: async (page: number = 1, pageSize: number = 10): Promise<stdResponse<BulletinListResponse>> => {
+                const stdRes: stdResponse<BulletinListResponse> = {
+                    message: "",
+                    success: false,
+                    data: { data: [], total: 0, page, pageSize }
+                }
+                try {
+                    const response = await axios.get('/api/core/bulletin/list', {
+                        params: { page, pageSize }
+                    })
+                    if (String(response.data.code) === "0") {
+                        stdRes.success = true
+                        stdRes.message = response.data.message || "获取公告列表成功"
+                        stdRes.data = {
+                            data: response.data.data || [],
+                            total: Number(response.data.total) || 0,
+                            page: Number(response.data.page) || page,
+                            pageSize: Number(response.data.pageSize) || pageSize
+                        }
+                    } else {
+                        stdRes.message = response.data.message || "获取公告列表失败"
+                    }
+                } catch (error: any) {
+                    console.error(error)
+                    stdRes.message = "获取公告列表失败"
+                }
+                return stdRes
+            },
+            get: async (id: number): Promise<stdResponse<BulletinInfo>> => {
+                return apiCall<BulletinInfo>(
+                    () => axios.get('/api/core/bulletin/get', { params: { id } }),
+                    (response) => {
+                        if (String(response.data.code) !== "0") return { message: response.data.message || "获取公告失败" }
+                        return { data: response.data.data, message: response.data.message || "获取公告成功" }
+                    },
+                    "获取公告失败",
+                    { id: 0, title: "", content: "", authorId: 0, authorName: "", isPinned: false, createdAt: 0, updatedAt: 0 }
+                )
+            },
+            create: async (request: { title: string; content: string; isPinned?: boolean }): Promise<stdResponse<BulletinInfo>> => {
+                return apiCall<BulletinInfo>(
+                    () => axios.post('/api/core/bulletin/create', request, {
+                        headers: { Authorization: `Bearer ${JWT.token}` }
+                    }),
+                    (response) => {
+                        if (String(response.data.code) !== "0") return { message: response.data.message || "创建公告失败" }
+                        return { data: response.data.data, message: response.data.message || "创建公告成功" }
+                    },
+                    "创建公告失败",
+                    { id: 0, title: "", content: "", authorId: 0, authorName: "", isPinned: false, createdAt: 0, updatedAt: 0 }
+                )
+            },
+            update: async (request: { id: number; title?: string; content?: string; isPinned?: boolean }): Promise<stdResponse<BulletinInfo>> => {
+                return apiCall<BulletinInfo>(
+                    () => axios.post('/api/core/bulletin/update', request, {
+                        headers: { Authorization: `Bearer ${JWT.token}` }
+                    }),
+                    (response) => {
+                        if (String(response.data.code) !== "0") return { message: response.data.message || "更新公告失败" }
+                        return { data: response.data.data, message: response.data.message || "更新公告成功" }
+                    },
+                    "更新公告失败",
+                    { id: 0, title: "", content: "", authorId: 0, authorName: "", isPinned: false, createdAt: 0, updatedAt: 0 }
+                )
+            },
+            delete: async (id: number): Promise<stdResponse> => {
+                return apiCall(
+                    () => axios.delete('/api/core/bulletin/delete', {
+                        params: { id },
+                        headers: { Authorization: `Bearer ${JWT.token}` }
+                    }),
+                    (response) => {
+                        if (String(response.data.code) !== "0") return { message: response.data.message || "删除公告失败" }
+                        return { message: response.data.message || "删除公告成功" }
+                    },
+                    "删除公告失败",
+                    null
+                )
             }
         }
     }

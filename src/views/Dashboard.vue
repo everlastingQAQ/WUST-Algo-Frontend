@@ -17,6 +17,13 @@ TODO:
                         <div class="en">Statistics</div>
                     </div>
                 </router-link>
+                <router-link to="/dashboard/bulletin" class="section" active-class="active">
+                    <font-awesome-icon icon="fa-solid fa-bullhorn" class="section-icon" />
+                    <div class="title">
+                        <div class="zh">公告管理</div>
+                        <div class="en">Bulletin</div>
+                    </div>
+                </router-link>
                 <router-link to="/dashboard/group" class="section" active-class="active">
                     <font-awesome-icon icon="fa-solid fa-people-group" class="section-icon" />
                     <div class="title">

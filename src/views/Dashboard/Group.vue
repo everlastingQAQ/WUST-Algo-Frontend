@@ -35,7 +35,6 @@
                             <th style="width: 50px;">组ID</th>
                             <th style="width: 200px;">组名称</th>
                             <th style="width: 200px;">描述</th>
-                            <th>成员数</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -49,7 +48,6 @@
                         <td v-else>
                             <input type="text" class="tdInput" v-model="updateForm.describe">
                         </td>
-                        <td>{{ item.users.length }}</td>
                         <td>
                             <div class="actions">
                                 <button class="btn btn-default"

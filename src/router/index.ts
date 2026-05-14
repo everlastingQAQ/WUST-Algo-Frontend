@@ -98,7 +98,17 @@ const routes = [
       path: 'statistics',
       name: 'Statistics',
       component: () => import('@/views/Dashboard/Statistics.vue')
+    },
+    {
+      path: 'bulletin',
+      name: 'BulletinManage',
+      component: () => import('@/views/Dashboard/Bulletin.vue')
     }]
+  },
+  {
+    path: '/bulletin',
+    name: 'Bulletin',
+    component: () => import('@/views/Bulletin.vue'),
   },
   {
     path: '/contest',
