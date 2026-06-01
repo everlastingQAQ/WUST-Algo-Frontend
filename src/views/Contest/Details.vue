@@ -235,7 +235,7 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: calc(100%-40px);
+    width: calc(100% - 40px);
     padding: 20px;
 
     >.platform {

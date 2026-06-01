@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+deploy_dir="$(cd "${script_dir}/.." && pwd)"
+repo_dir="$(cd "${deploy_dir}/.." && pwd)"
+
+if [[ ! -f "${deploy_dir}/.env" ]]; then
+  cp "${deploy_dir}/.env.example" "${deploy_dir}/.env"
+  echo "Created ${deploy_dir}/.env from .env.example. Edit it, then rerun this command."
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1091
+source "${deploy_dir}/.env"
+set +a
+
+for command_name in envsubst npm sudo nginx systemctl; do
+  if ! command -v "${command_name}" >/dev/null 2>&1; then
+    echo "Missing required command: ${command_name}"
+    exit 1
+  fi
+done
+
+echo "Installing frontend dependencies..."
+cd "${repo_dir}"
+npm ci --include=dev
+
+echo "Building frontend..."
+npm run build
+
+echo "Installing Nginx site..."
+tmp_conf="$(mktemp)"
+envsubst '${DOMAIN} ${APP_ROOT} ${BACKEND_UPSTREAM}' < "${deploy_dir}/nginx/wust-algo.conf.tpl" > "${tmp_conf}"
+sudo install -m 0644 "${tmp_conf}" "/etc/nginx/sites-available/${NGINX_SITE_NAME}"
+rm -f "${tmp_conf}"
+
+sudo ln -sfn "/etc/nginx/sites-available/${NGINX_SITE_NAME}" "/etc/nginx/sites-enabled/${NGINX_SITE_NAME}"
+sudo nginx -t
+sudo systemctl reload nginx
+
+echo "Frontend deployment finished for http://${DOMAIN}"
