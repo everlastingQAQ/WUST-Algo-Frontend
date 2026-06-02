@@ -69,6 +69,11 @@ const routes = [
     component: () => import("@/views/StatisticsOverview.vue"),
   },
   {
+    path: "/compare",
+    name: "Compare",
+    component: () => import("@/views/Compare.vue"),
+  },
+  {
     path: "/login",
     name: "Login",
     component: () => import("@/views/Login.vue"),
