@@ -230,6 +230,22 @@
                         </div>
                     </div>
                     <div class="section" style="position: relative;">
+                        <LoadingOverlay :show="loadingHeatmap" />
+                        <div class="header">
+                            <div class="header-title">
+                                <span class="title-icon">
+                                    <font-awesome-icon icon="fa-solid fa-chart-line" />
+                                </span>
+                                <span class="title-text">提交趋势</span>
+                            </div>
+                        </div>
+                        <div class="content">
+                            <div class="profile-chart-container">
+                                <v-chart class="profile-chart" :option="chartOption" autoresize />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section" style="position: relative;">
                         <LoadingOverlay :show="loadingActivities" />
                         <div class="header">
                             <div class="header-title">
@@ -300,7 +316,7 @@
 <script setup lang="ts">
 import BaseLayout from '@/components/BaseLayout.vue'
 import Calendar from '@/components/Calendar.vue';
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onBeforeUnmount, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import JWT from '../utils/jwt';
 import Confirm from '@/components/confirm.vue'
@@ -312,6 +328,25 @@ import Toast from '@/utils/toast';
 import type { User } from '@/utils/type';
 import Link from '@/utils/link';
 import Bot from '@/utils/bot';
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { LineChart } from "echarts/charts";
+import {
+    DataZoomComponent,
+    GridComponent,
+    LegendComponent,
+    TooltipComponent,
+} from "echarts/components";
+import VChart from "vue-echarts";
+
+use([
+    CanvasRenderer,
+    LineChart,
+    TooltipComponent,
+    LegendComponent,
+    GridComponent,
+    DataZoomComponent,
+]);
 
 Bot.tip.addOjTip();
 
@@ -351,6 +386,11 @@ const loadingHeatmap = ref(true)
 const loadingActivities = ref(true)
 const loadingContests = ref(true)
 const loadingTeam = ref(true)
+const isCompactScreen = ref(false);
+
+const syncScreenSize = () => {
+    isCompactScreen.value = window.innerWidth <= 640;
+};
 
 const ojPlatforms = [
     { key: 'AtCoder' as const, label: 'AtCoder' },
@@ -695,6 +735,8 @@ interface HeatmapData {
 
 const submitData = ref<HeatmapData[]>([])
 const acData = ref<HeatmapData[]>([])
+const submitTrendData = ref<HeatmapData[]>([])
+const acTrendData = ref<HeatmapData[]>([])
 
 const dynamicYear = ref<number>(new Date().getFullYear())
 
@@ -720,6 +762,7 @@ const getHeatmapData = async () => {
     Toast.stdResponse(response1, false);
 
     if (response1.success) {
+        submitTrendData.value = response1.data.data;
         submitData.value = response1.data.data.filter(item => item.count > 0);
     }
 
@@ -732,10 +775,139 @@ const getHeatmapData = async () => {
     Toast.stdResponse(response2, false);
 
     if (response2.success) {
+        acTrendData.value = response2.data.data;
         acData.value = response2.data.data.filter(item => item.count > 0);
-        loadingHeatmap.value = false;
     }
+    loadingHeatmap.value = false;
 }
+
+const calculateDefaultRange = (dates: string[]) => {
+    if (dates.length === 0) {
+        return {
+            startIndex: 0,
+            endIndex: 0
+        };
+    }
+    if (dates.length <= 30) {
+        return {
+            startIndex: 0,
+            endIndex: dates.length - 1
+        };
+    }
+    const endIndex = dates.length - 1;
+    const startIndex = Math.max(0, endIndex - 29);
+    return {
+        startIndex,
+        endIndex
+    };
+}
+
+const chartOption = computed(() => {
+    const sortedAcData = [...acTrendData.value].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    const sortedSubmitData = [...submitTrendData.value].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    const dates = sortedSubmitData.length > 0
+        ? sortedSubmitData.map((item) => item.date)
+        : sortedAcData.map((item) => item.date);
+    const acMap = new Map(sortedAcData.map((item) => [item.date, item.count]));
+    const submitMap = new Map(sortedSubmitData.map((item) => [item.date, item.count]));
+    const acValues = dates.map((date) => acMap.get(date) || 0);
+    const submitValues = dates.map((date) => submitMap.get(date) || 0);
+    const { startIndex, endIndex } = calculateDefaultRange(dates);
+    const divisor = Math.max(dates.length - 1, 1);
+    const startPercent = (startIndex / divisor) * 100;
+    const endPercent = dates.length <= 1 ? 100 : (endIndex / divisor) * 100;
+
+    return {
+        darkmode: "auto",
+        tooltip: {
+            trigger: "axis",
+            axisPointer: {
+                type: "cross",
+                label: {
+                    backgroundColor: "#6a7985",
+                },
+            },
+        },
+        legend: {
+            data: ["AC", "提交"],
+            top: isCompactScreen.value ? 4 : 0,
+            left: isCompactScreen.value ? "center" : "left",
+        },
+        grid: {
+            top: isCompactScreen.value ? 42 : 48,
+            left: isCompactScreen.value ? 8 : "3%",
+            right: isCompactScreen.value ? 8 : "4%",
+            bottom: isCompactScreen.value ? 36 : 64,
+            containLabel: true,
+        },
+        xAxis: [
+            {
+                type: "category",
+                boundaryGap: false,
+                data: dates,
+                axisLabel: {
+                    hideOverlap: true,
+                    interval: isCompactScreen.value ? "auto" : 0,
+                    formatter: function (value: string) {
+                        const date = new Date(value);
+                        return date.getMonth() + 1 + "-" + date.getDate();
+                    },
+                },
+                splitLine: {
+                    show: false,
+                },
+            },
+        ],
+        yAxis: [
+            {
+                type: "value",
+                splitLine: {
+                    show: false,
+                },
+            },
+        ],
+        dataZoom: [
+            {
+                type: "inside",
+                start: startPercent,
+                end: endPercent,
+            },
+            {
+                show: !isCompactScreen.value,
+                start: startPercent,
+                end: endPercent,
+                handleSize: "110%",
+            },
+        ],
+        series: [
+            {
+                name: "AC",
+                type: "line",
+                emphasis: {
+                    focus: "series",
+                },
+                data: acValues,
+                smooth: true,
+                showSymbol: false,
+            },
+            {
+                name: "提交",
+                type: "line",
+                emphasis: {
+                    focus: "series",
+                },
+                data: submitValues,
+                smooth: true,
+                showSymbol: false,
+            },
+        ],
+    };
+});
 
 interface Unit {
     title: string;
@@ -1000,6 +1172,8 @@ const logout = async () => {
 }
 
 onMounted(() => {
+    syncScreenSize();
+    window.addEventListener("resize", syncScreenSize);
     // 该页面有登录路由守卫
     if (route.query.id) {
         user.value.userId = Number(route.query.id);
@@ -1007,6 +1181,10 @@ onMounted(() => {
         user.value.userId = JWT.getUserInfo()!.userId;
     }
     getUserInfo();
+})
+
+onBeforeUnmount(() => {
+    window.removeEventListener("resize", syncScreenSize);
 })
 </script>
 
@@ -1769,6 +1947,18 @@ onMounted(() => {
     }
 }
 
+.profile-chart-container {
+    width: 100%;
+    min-width: 0;
+    height: clamp(280px, 34vh, 420px);
+    box-sizing: border-box;
+}
+
+.profile-chart {
+    width: 100%;
+    height: 100%;
+}
+
 .moblie-actions {
     display: none;
 }
@@ -2065,6 +2255,10 @@ onMounted(() => {
 }
 
 @media (max-width:600px) {
+    .profile-chart-container {
+        height: 300px;
+    }
+
     .container > .top > .left > .avatar {
         top: 120px;
         width: 80px;
