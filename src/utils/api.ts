@@ -703,6 +703,57 @@ export default class API {
 
         return stdRes;
       },
+      updateNickname: async (
+        request: UserProfileUpdateRequest,
+      ): Promise<stdResponse> => {
+        const stdRes: stdResponse = {
+          message: "",
+          success: false,
+          data: null,
+        };
+
+        if (!JWT.isValid()) {
+          stdRes.message = "用户未登录";
+          return stdRes;
+        }
+
+        if (!request.userId || request.name.trim() === "") {
+          stdRes.message = "昵称不能为空";
+          return stdRes;
+        }
+
+        try {
+          const response = await axios.post<UserProfileUpdateResponse>(
+            "/api/user/profile/update",
+            {
+              userId: Number(request.userId),
+              name: request.name.trim(),
+              email: request.email || "",
+              avatar: request.avatar || "",
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${JWT.token}`,
+              },
+            },
+          );
+          if (response.status === 200) {
+            stdRes.success = true;
+            stdRes.message = response.data.message || "昵称已更新";
+            stdRes.data = response.data;
+          } else {
+            stdRes.message = response.data.message || "更新昵称失败";
+          }
+        } catch (error: any) {
+          console.error(error);
+          stdRes.message =
+            error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            "更新昵称失败";
+        }
+
+        return stdRes;
+      },
       changePassword: async (
         request: UserProfileChangePasswordRequest,
       ): Promise<stdResponse> => {

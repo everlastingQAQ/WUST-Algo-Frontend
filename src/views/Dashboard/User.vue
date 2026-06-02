@@ -22,7 +22,7 @@
               <tr>
                 <th style="width: 60px">头像</th>
                 <th style="width: 120px">用户名</th>
-                <th style="width: 120px">姓名</th>
+                <th style="width: 120px">昵称</th>
                 <th style="width: 120px">
                   {{ userStore.isCoach ? "分组" : "角色" }}
                 </th>
@@ -70,6 +70,13 @@
                       @click="openPasswordModal(item)"
                     >
                       改密码
+                    </button>
+                    <button
+                      v-if="userStore.isAdmin"
+                      class="btn btn-primary"
+                      @click="openNicknameModal(item)"
+                    >
+                      改昵称
                     </button>
                     <button
                       class="btn btn-primary"
@@ -256,6 +263,48 @@
       </div>
     </div>
   </div>
+
+  <!-- 管理员修改昵称弹窗 -->
+  <div
+    class="modal-overlay"
+    v-if="showNicknameModal"
+    @click="closeNicknameModal"
+  >
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <span>修改用户昵称</span>
+        <button class="modal-close" @click="closeNicknameModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-user">
+          <span class="label">用户：</span>
+          <span
+            >{{ selectedNicknameUser?.name }} ({{
+              selectedNicknameUser?.username
+            }})</span
+          >
+        </div>
+        <div class="modal-field">
+          <label>昵称</label>
+          <input
+            type="text"
+            v-model.trim="nicknameForm.name"
+            placeholder="请输入新的昵称"
+          />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          class="btn btn-primary"
+          @click="handleNicknameConfirm"
+          :disabled="nicknameLoading"
+        >
+          确认
+        </button>
+        <button class="btn" @click="closeNicknameModal">取消</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -318,6 +367,15 @@ const passwordForm = ref({
   newPasswordConfirm: "",
 });
 const deleteLoadingUserId = ref<number | null>(null);
+const showNicknameModal = ref(false);
+const selectedNicknameUser = ref<User | null>(null);
+const nicknameLoading = ref(false);
+const nicknameForm = ref({
+  userId: 0,
+  name: "",
+  email: "",
+  avatar: "",
+});
 
 const pages = computed(() => {
   if (!data.value) return [];
@@ -458,6 +516,58 @@ const handlePasswordConfirm = async () => {
   passwordLoading.value = false;
   if (response.success) {
     closePasswordModal();
+  }
+};
+
+const openNicknameModal = async (user: User) => {
+  selectedNicknameUser.value = user;
+  nicknameLoading.value = true;
+  const response = await API.user.profile.getById(Number(user.userId));
+  nicknameLoading.value = false;
+  if (!response.success) {
+    Toast.stdResponse(response);
+    selectedNicknameUser.value = null;
+    return;
+  }
+  nicknameForm.value = {
+    userId: Number(response.data.userId),
+    name: response.data.name || "",
+    email: response.data.email || "",
+    avatar: response.data.avatar || "",
+  };
+  showNicknameModal.value = true;
+};
+
+const closeNicknameModal = () => {
+  showNicknameModal.value = false;
+  selectedNicknameUser.value = null;
+  nicknameForm.value = {
+    userId: 0,
+    name: "",
+    email: "",
+    avatar: "",
+  };
+};
+
+const handleNicknameConfirm = async () => {
+  if (!selectedNicknameUser.value) return;
+  if (!nicknameForm.value.name.trim()) {
+    Toast.error("昵称不能为空");
+    return;
+  }
+
+  nicknameLoading.value = true;
+  const response = await API.user.profile.updateNickname({
+    userId: nicknameForm.value.userId,
+    name: nicknameForm.value.name.trim(),
+    email: nicknameForm.value.email,
+    avatar: nicknameForm.value.avatar,
+  });
+  Toast.stdResponse(response);
+  nicknameLoading.value = false;
+  if (response.success) {
+    closeNicknameModal();
+    refresh();
   }
 };
 

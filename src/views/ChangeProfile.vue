@@ -46,8 +46,8 @@
           <div class="hint">支持 http(s) 图片链接，留空则使用默认头像。</div>
         </div>
         <div class="item">
-          <label>姓名</label>
-          <input type="text" placeholder="Name" v-model="formData.name" />
+          <label>昵称</label>
+          <input type="text" placeholder="请输入昵称" v-model="formData.name" />
         </div>
         <div class="item">
           <label>邮箱</label>
