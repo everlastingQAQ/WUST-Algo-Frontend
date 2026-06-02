@@ -32,7 +32,7 @@ npm run build
 
 echo "Installing Nginx site..."
 tmp_conf="$(mktemp)"
-envsubst '${DOMAIN} ${APP_ROOT} ${BACKEND_UPSTREAM}' < "${deploy_dir}/nginx/wust-algo.conf.tpl" > "${tmp_conf}"
+envsubst '${DOMAIN} ${NGINX_PORT} ${APP_ROOT} ${BACKEND_UPSTREAM} ${USER_UPSTREAM} ${CORE_UPSTREAM} ${AGENT_UPSTREAM}' < "${deploy_dir}/nginx/wust-algo.conf.tpl" > "${tmp_conf}"
 sudo install -m 0644 "${tmp_conf}" "/etc/nginx/sites-available/${NGINX_SITE_NAME}"
 rm -f "${tmp_conf}"
 
@@ -40,4 +40,4 @@ sudo ln -sfn "/etc/nginx/sites-available/${NGINX_SITE_NAME}" "/etc/nginx/sites-e
 sudo nginx -t
 sudo systemctl reload nginx
 
-echo "Frontend deployment finished for http://${DOMAIN}"
+echo "Frontend deployment finished for http://${DOMAIN}:${NGINX_PORT}"

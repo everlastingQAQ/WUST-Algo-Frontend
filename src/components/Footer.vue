@@ -3,10 +3,10 @@
         <div class="container">
             <div class="footer-main-content">
                 <div class="footer-column">
-                    <h4>CWXU - Algo</h4>
-                    <p class="description">CWXU - Algo，无锡学院算法协会监测平台。</p>
+                    <h4>WUST - Algo</h4>
+                    <p class="description">WUST - Algo，WUST ACM 监测平台。</p>
                     <div class="social-icons">
-                        <a href="https://github.com/WXUProjects/CWXU-Algo-Frontend" target="_blank" title="GitHub">
+                        <a href="https://github.com/everlastingQAQ/WUST-Algo-Frontend" target="_blank" title="GitHub">
                             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                                 viewBox="0 0 1024 1024">
                                 <path
@@ -27,7 +27,7 @@
                 <span class="footer-column-title">友情链接: </span>
 
                 <span style="margin-left: 10px;font-size:var(--text-sm)">
-                    <a :href="'https://www.cwxu.edu.cn/'" target="_blank" rel="noopener noreferrer">无锡学院</a>
+                    <a :href="'https://www.wxu.edu.cn/'" target="_blank" rel="noopener noreferrer">无锡学院</a>
                 </span>
 
                 <span style="margin-left: 10px;font-size:var(--text-sm)">
@@ -37,7 +37,13 @@
             <hr class="footer-divider">
             <div class="footer-bottom">
                 <p>
-                    &copy; {{ currentYear }} zhiyuansofts. <a href="https://beian.miit.gov.cn/" target="_blank" style="font-size:var(--text-sm)">苏ICP备2025217901号</a>
+                    &copy; {{ currentYear }} zhiyuansofts.
+                    <br />
+                    本项目基于
+                    <a href="https://github.com/WXUProjects/CWXU-Algo-Frontend" target="_blank">CWXU-Algo-Frontend</a>
+                    与
+                    <a href="https://github.com/WXUProjects/CWXU-Algo" target="_blank">CWXU-Algo</a>
+                    开源代码构建，感谢无锡学院算法协会及原作者在 GitHub 上贡献源码。
                     <br />
                     ♥ Designed by <a href="https://github.com/AoralsFout" target="_blank">AoralsFout</a>、<a
                         href="https://github.com/srcenchen" target="_blank">srcenchen</a>、<a

@@ -8,21 +8,30 @@
             <span class="title-icon">
               <font-awesome-icon icon="fa-solid fa-chart-line" />
             </span>
-            <span class="title-text">{{ isLogin ? '' : '全站' }}数据统计</span>
+            <span class="title-text">{{ isLogin ? "" : "全站" }}数据统计</span>
           </div>
           <!-- <div class="header-actions">
             <span class="action-refresh">⟳ 刷新</span>
             <span class="action-export">⬇ 导出</span>
           </div> -->
           <div class="header-tabs">
-            <span class="tab" :class="mode === 'ac' ? 'active' : ''" @click="mode = 'ac'">AC数据</span>
-            <span class="tab" :class="mode === 'submit' ? 'active' : ''" @click="mode = 'submit'">提交数据</span>
+            <span
+              class="tab"
+              :class="mode === 'ac' ? 'active' : ''"
+              @click="mode = 'ac'"
+              >AC数据</span
+            >
+            <span
+              class="tab"
+              :class="mode === 'submit' ? 'active' : ''"
+              @click="mode = 'submit'"
+              >提交数据</span
+            >
           </div>
         </div>
 
-        <div class="stats-grid" style="position: relative;">
+        <div class="stats-grid" style="position: relative">
           <LoadingOverlay :show="loadingStats" />
-          <Stars class="stars" />
           <!-- 生涯统计 -->
           <div class="stat-card">
             <div class="card-header">
@@ -35,6 +44,16 @@
             <div class="card-data">
               <div class="data-value">{{ currentPeriodData.total }}</div>
               <div class="data-unit">{{ mode.toUpperCase() }} Total</div>
+            </div>
+            <div class="platform-breakdown">
+              <div
+                class="platform-row"
+                v-for="item in platformBreakdown('total')"
+                :key="`career-${item.platform}`"
+              >
+                <span class="platform-name">{{ item.label }}</span>
+                <span class="platform-value">{{ item.value }}</span>
+              </div>
             </div>
             <div class="card-glow"></div>
           </div>
@@ -49,8 +68,20 @@
               </div>
             </div>
             <div class="card-data">
-              <div class="data-value">{{ (periodData.ac.total / periodData.submit.total * 100).toFixed(2) }}%</div>
+              <div class="data-value">
+                {{ formatRate(periodData.ac.total, periodData.submit.total) }}
+              </div>
               <div class="data-unit">AC Percentage</div>
+            </div>
+            <div class="platform-breakdown">
+              <div
+                class="platform-row"
+                v-for="item in platformBreakdown('percentage')"
+                :key="`percentage-${item.platform}`"
+              >
+                <span class="platform-name">{{ item.label }}</span>
+                <span class="platform-value">{{ item.value }}</span>
+              </div>
             </div>
             <div class="card-glow"></div>
           </div>
@@ -68,6 +99,16 @@
               <div class="data-value">{{ currentPeriodData.today }}</div>
               <div class="data-unit">Today's {{ mode.toUpperCase() }}</div>
             </div>
+            <div class="platform-breakdown">
+              <div
+                class="platform-row"
+                v-for="item in platformBreakdown('today')"
+                :key="`today-${item.platform}`"
+              >
+                <span class="platform-name">{{ item.label }}</span>
+                <span class="platform-value">{{ item.value }}</span>
+              </div>
+            </div>
             <div class="card-glow"></div>
           </div>
 
@@ -82,13 +123,42 @@
             </div>
             <div class="card-data">
               <div class="data-value">{{ currentPeriodData.thisYear }}</div>
-              <div class="data-unit">Year {{ new Date().getFullYear() }}'s {{ mode.toUpperCase() }}</div>
+              <div class="data-unit">
+                Year {{ new Date().getFullYear() }}'s {{ mode.toUpperCase() }}
+              </div>
+            </div>
+            <div class="platform-breakdown">
+              <div
+                class="platform-row"
+                v-for="item in platformBreakdown('thisYear')"
+                :key="`year-${item.platform}`"
+              >
+                <span class="platform-name">{{ item.label }}</span>
+                <span class="platform-value">{{ item.value }}</span>
+              </div>
             </div>
             <div class="card-footer">
-              <div class="footer-trend" :class="getTrendClass(currentPeriodData.thisYear, currentPeriodData.lastYear)">
-                <span class="trend-icon">{{ getTrend(currentPeriodData.thisYear, currentPeriodData.lastYear) }}</span>
-                <span class="trend-value">{{ getTrendValue(currentPeriodData.thisYear, currentPeriodData.lastYear)
-                  }}</span>
+              <div
+                class="footer-trend"
+                :class="
+                  getTrendClass(
+                    currentPeriodData.thisYear,
+                    currentPeriodData.lastYear,
+                  )
+                "
+              >
+                <span class="trend-icon">{{
+                  getTrend(
+                    currentPeriodData.thisYear,
+                    currentPeriodData.lastYear,
+                  )
+                }}</span>
+                <span class="trend-value">{{
+                  getTrendValue(
+                    currentPeriodData.thisYear,
+                    currentPeriodData.lastYear,
+                  )
+                }}</span>
               </div>
               <div class="footer-info">VS last year</div>
             </div>
@@ -108,12 +178,38 @@
               <div class="data-value">{{ currentPeriodData.thisMonth }}</div>
               <div class="data-unit">This Month's {{ mode.toUpperCase() }}</div>
             </div>
+            <div class="platform-breakdown">
+              <div
+                class="platform-row"
+                v-for="item in platformBreakdown('thisMonth')"
+                :key="`month-${item.platform}`"
+              >
+                <span class="platform-name">{{ item.label }}</span>
+                <span class="platform-value">{{ item.value }}</span>
+              </div>
+            </div>
             <div class="card-footer">
-              <div class="footer-trend"
-                :class="getTrendClass(currentPeriodData.thisMonth, currentPeriodData.lastMonth)">
-                <span class="trend-icon">{{ getTrend(currentPeriodData.thisMonth, currentPeriodData.lastMonth) }}</span>
-                <span class="trend-value">{{ getTrendValue(currentPeriodData.thisMonth, currentPeriodData.lastMonth)
-                  }}</span>
+              <div
+                class="footer-trend"
+                :class="
+                  getTrendClass(
+                    currentPeriodData.thisMonth,
+                    currentPeriodData.lastMonth,
+                  )
+                "
+              >
+                <span class="trend-icon">{{
+                  getTrend(
+                    currentPeriodData.thisMonth,
+                    currentPeriodData.lastMonth,
+                  )
+                }}</span>
+                <span class="trend-value">{{
+                  getTrendValue(
+                    currentPeriodData.thisMonth,
+                    currentPeriodData.lastMonth,
+                  )
+                }}</span>
               </div>
               <div class="footer-info">VS last month</div>
             </div>
@@ -123,7 +219,10 @@
           <!-- 本周统计 -->
           <div class="stat-card">
             <div class="card-header">
-              <font-awesome-icon icon="fa-solid fa-crosshairs" class="card-icon" />
+              <font-awesome-icon
+                icon="fa-solid fa-crosshairs"
+                class="card-icon"
+              />
               <div class="card-title">
                 <div class="title-main">WEEKLY</div>
                 <div class="title-sub">本周{{ mode.toUpperCase() }}</div>
@@ -133,11 +232,38 @@
               <div class="data-value">{{ currentPeriodData.thisWeek }}</div>
               <div class="data-unit">This Week's {{ mode.toUpperCase() }}</div>
             </div>
+            <div class="platform-breakdown">
+              <div
+                class="platform-row"
+                v-for="item in platformBreakdown('thisWeek')"
+                :key="`week-${item.platform}`"
+              >
+                <span class="platform-name">{{ item.label }}</span>
+                <span class="platform-value">{{ item.value }}</span>
+              </div>
+            </div>
             <div class="card-footer">
-              <div class="footer-trend" :class="getTrendClass(currentPeriodData.thisWeek, currentPeriodData.lastWeek)">
-                <span class="trend-icon">{{ getTrend(currentPeriodData.thisWeek, currentPeriodData.lastWeek) }}</span>
-                <span class="trend-value">{{ getTrendValue(currentPeriodData.thisWeek, currentPeriodData.lastWeek)
-                  }}</span>
+              <div
+                class="footer-trend"
+                :class="
+                  getTrendClass(
+                    currentPeriodData.thisWeek,
+                    currentPeriodData.lastWeek,
+                  )
+                "
+              >
+                <span class="trend-icon">{{
+                  getTrend(
+                    currentPeriodData.thisWeek,
+                    currentPeriodData.lastWeek,
+                  )
+                }}</span>
+                <span class="trend-value">{{
+                  getTrendValue(
+                    currentPeriodData.thisWeek,
+                    currentPeriodData.lastWeek,
+                  )
+                }}</span>
               </div>
               <div class="footer-info">VS last week</div>
             </div>
@@ -157,18 +283,35 @@
                 <span class="title-text">热力图</span>
               </div>
               <div class="header-tabs">
-                <span class="tab" :class="currentCalendar === 0 ? 'active' : ''"
-                  @click="currentCalendar = 0">提交热力图</span>
-                <span class="tab" :class="currentCalendar === 1 ? 'active' : ''"
-                  @click="currentCalendar = 1">AC热力图</span>
+                <span
+                  class="tab"
+                  :class="currentCalendar === 0 ? 'active' : ''"
+                  @click="currentCalendar = 0"
+                  >提交热力图</span
+                >
+                <span
+                  class="tab"
+                  :class="currentCalendar === 1 ? 'active' : ''"
+                  @click="currentCalendar = 1"
+                  >AC热力图</span
+                >
               </div>
             </div>
 
-            <div class="section-secondary-container" style="position: relative;">
+            <div class="section-secondary-container" style="position: relative">
               <LoadingOverlay :show="loadingHeatmap" />
-              <Calendar v-if="currentCalendar === 0" :data="submitData" :year="dynamicYear"
-                @changeYear="handleYearChange"></Calendar>
-              <Calendar v-if="currentCalendar === 1" :data="acData" :year="dynamicYear" @changeYear="handleYearChange">
+              <Calendar
+                v-if="currentCalendar === 0"
+                :data="submitData"
+                :year="dynamicYear"
+                @changeYear="handleYearChange"
+              ></Calendar>
+              <Calendar
+                v-if="currentCalendar === 1"
+                :data="acData"
+                :year="dynamicYear"
+                @changeYear="handleYearChange"
+              >
               </Calendar>
             </div>
           </div>
@@ -186,25 +329,36 @@
               <div class="enterCardGrid">
                 <a class="card" href="https://ac.nowcoder.com/" target="_blank">
                   <div class="icon">
-                    <img src="/images/ac.nowcoder.webp" alt="">
+                    <img src="/images/ac.nowcoder.webp" alt="" />
                   </div>
                   <div class="info">
                     <div class="title">牛客竞赛</div>
                     <div class="desc">专业的编程算法训练平台</div>
                   </div>
                 </a>
-                <a class="card" href="https://www.nowcoder.com/problem/tracker#/daily" target="_blank">
+                <a
+                  class="card"
+                  href="https://www.nowcoder.com/problem/tracker#/daily"
+                  target="_blank"
+                >
                   <div class="icon">
-                    <img src="/images/www.nowcoder.webp" alt="">
+                    <img src="/images/www.nowcoder.webp" alt="" />
                   </div>
                   <div class="info">
                     <div class="title">牛客tracker</div>
                     <div class="desc">牛客tracker</div>
                   </div>
                 </a>
-                <a class="card" href="https://www.luogu.com.cn/" target="_blank">
+                <a
+                  class="card"
+                  href="https://www.luogu.com.cn/"
+                  target="_blank"
+                >
                   <div class="icon">
-                    <img src="https://fecdn.luogu.com.cn/columba/static.325908fec383795b.logo-single-color.svg" alt="">
+                    <img
+                      src="https://fecdn.luogu.com.cn/columba/static.325908fec383795b.logo-single-color.svg"
+                      alt=""
+                    />
                   </div>
                   <div class="info">
                     <div class="title">洛谷</div>
@@ -213,16 +367,22 @@
                 </a>
                 <a class="card" href="https://atcoder.jp/home" target="_blank">
                   <div class="icon">
-                    <img src="https://img.atcoder.jp/assets/logo.png" alt="">
+                    <img src="https://img.atcoder.jp/assets/logo.png" alt="" />
                   </div>
                   <div class="info">
                     <div class="title">AtCoder</div>
-                    <div class="desc">AtCoder is a programming contest site for anyone from beginners to experts</div>
+                    <div class="desc">
+                      AtCoder is a programming contest site for anyone from
+                      beginners to experts
+                    </div>
                   </div>
                 </a>
                 <a class="card" href="https://codeforces.com/" target="_blank">
                   <div class="icon">
-                    <img src="https://codeforces.com/codeforces.org/s/52348/android-icon-192x192.png" alt="">
+                    <img
+                      src="https://codeforces.com/codeforces.org/s/52348/android-icon-192x192.png"
+                      alt=""
+                    />
                   </div>
                   <div class="info">
                     <div class="title">CodeForces</div>
@@ -233,7 +393,8 @@
                   <div class="icon">
                     <img
                       src="https://assets.leetcode.cn/aliyun-lc-upload/uploaded_files/2021/03/73c9f099-abbe-4d94-853f-f8abffd459cd/leetcode.png"
-                      alt="">
+                      alt=""
+                    />
                   </div>
                   <div class="info">
                     <div class="title">力扣</div>
@@ -278,12 +439,12 @@
             <div class="section-header">
               <div class="header-title">
                 <span class="title-icon">
-                  <font-awesome-icon icon="fa-solid fa-bullhorn" />
+                  <font-awesome-icon icon="fa-solid fa-envelope" />
                 </span>
-                <span class="title-text">公告</span>
+                <span class="title-text">消息</span>
               </div>
             </div>
-            <div class="section-secondary-container" style="position: relative;">
+            <div class="section-secondary-container" style="position: relative">
               <BulletinBoard />
             </div>
           </div>
@@ -297,9 +458,11 @@
               </div>
             </div>
 
-            <div class="section-secondary-container" style="position: relative;">
+            <div class="section-secondary-container" style="position: relative">
               <LoadingOverlay :show="loadingAi" />
-              <div v-for="item in aiSummary" class="analyseItem"> {{ item }}</div>
+              <div v-for="item in aiSummary" class="analyseItem">
+                {{ item }}
+              </div>
               <div class="aiTip">内容由AI生成，请仔细甄别。</div>
               <!-- <div v-for="item in analyse" v-html="item" class="analyseItem"></div> -->
             </div>
@@ -311,81 +474,88 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import BaseLayout from '@/components/BaseLayout.vue';
-import Calendar from '@/components/Calendar.vue';
+import { computed, onMounted, ref } from "vue";
+import BaseLayout from "@/components/BaseLayout.vue";
+import Calendar from "@/components/Calendar.vue";
 // import Rank from '@/components/Rank.vue';
-import JWT from '@/utils/jwt';
-import API, { type CoreStatisticHeatmapRequest, type CoreStatisticPeriodData, type CoreStatisticPeriodItem } from '@/utils/api';
-import Toast from '@/utils/toast';
-import Analyse from '@/utils/analyse';
-import { useUserStore } from '@/stores/user';
-import Stars from '@/components/Stars.vue';
-import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import BulletinBoard from '@/components/BulletinBoard.vue';
+import JWT from "@/utils/jwt";
+import API, {
+  type CoreStatisticHeatmapRequest,
+  type CoreStatisticPeriodData,
+  type CoreStatisticPeriodItem,
+  type CoreStatisticPlatformPeriodItem,
+} from "@/utils/api";
+import Toast from "@/utils/toast";
+import Analyse from "@/utils/analyse";
+import { useUserStore } from "@/stores/user";
+import LoadingOverlay from "@/components/LoadingOverlay.vue";
+import BulletinBoard from "@/components/BulletinBoard.vue";
 
-const userStore = useUserStore()
-const isLogin = computed(() => userStore.isLogin)
+const userStore = useUserStore();
+const isLogin = computed(() => userStore.isLogin);
 
-const loadingStats = ref(true)
-const loadingHeatmap = ref(true)
-const loadingAi = ref(true)
+const loadingStats = ref(true);
+const loadingHeatmap = ref(true);
+const loadingAi = ref(true);
 
 interface HeatmapData {
   date: string;
   count: number;
 }
 
-const analyse = ref<string[]>([])
-const aiSummary = ref<string[]>([])
+const analyse = ref<string[]>([]);
+const aiSummary = ref<string[]>([]);
 
-const submitData = ref<HeatmapData[]>([])
-const acData = ref<HeatmapData[]>([])
+const submitData = ref<HeatmapData[]>([]);
+const acData = ref<HeatmapData[]>([]);
 
-const dynamicYear = ref<number>(new Date().getFullYear())
+const dynamicYear = ref<number>(new Date().getFullYear());
 
 const handleYearChange = (year: number) => {
-  dynamicYear.value = year
-}
+  dynamicYear.value = year;
+};
 const padZero = (num: number): string => {
-  return num < 10 ? '0' + num : num.toString();
-}
+  return num < 10 ? "0" + num : num.toString();
+};
 
 const getHeatmapData = async () => {
   loadingHeatmap.value = true;
   const dateObj = new Date();
-  const date = dateObj.getFullYear() + padZero(dateObj.getMonth() + 1) + padZero(dateObj.getDate());
+  const date =
+    dateObj.getFullYear() +
+    padZero(dateObj.getMonth() + 1) +
+    padZero(dateObj.getDate());
 
   let request: CoreStatisticHeatmapRequest = {
     startDate: "20230101",
     endDate: date,
-    isAc: false
-  }
+    isAc: false,
+  };
 
   if (isLogin.value) {
-    request.userId = JWT.getUserInfo()!.userId
+    request.userId = JWT.getUserInfo()!.userId;
   }
 
-  const response1 = await API.core.statistic.heatmap(request)
+  const response1 = await API.core.statistic.heatmap(request);
   Toast.stdResponse(response1, false);
 
   if (response1.success) {
-    submitData.value = response1.data.data.filter(item => item.count > 0);
+    submitData.value = response1.data.data.filter((item) => item.count > 0);
   }
 
-  request.isAc = true
+  request.isAc = true;
 
-  const response2 = await API.core.statistic.heatmap(request)
+  const response2 = await API.core.statistic.heatmap(request);
   Toast.stdResponse(response2, false);
 
   if (response2.success) {
-    acData.value = response2.data.data.filter(item => item.count > 0);
+    acData.value = response2.data.data.filter((item) => item.count > 0);
     loadingHeatmap.value = false;
   }
-}
+};
 
 const rankData = ref({
-  "data": [
+  data: [
     { name: "张三", score: 1400, change: 1 },
     { name: "李四", score: 1300, change: 1 },
     { name: "王五", score: 1200, change: 0 },
@@ -395,17 +565,17 @@ const rankData = ref({
     { name: "周九", score: 400, change: -1 },
     { name: "吴十", score: 300, change: -1 },
     { name: "郑十一", score: 200, change: 0 },
-    { name: "王十二", score: 100, change: 0 }
+    { name: "王十二", score: 100, change: 0 },
   ],
-  "scoreUnit": "AC",
-  "userRank": 4,
-  "userName": '赵六',
-  "userScore": 1145,
-  "totalPage": 1
-})
+  scoreUnit: "AC",
+  userRank: 4,
+  userName: "赵六",
+  userScore: 1145,
+  totalPage: 1,
+});
 
-const currentRank = ref(0)
-const currentCalendar = ref(0)
+const currentRank = ref(0);
+const currentCalendar = ref(0);
 
 const periodData = ref<CoreStatisticPeriodData>({
   ac: {
@@ -416,7 +586,7 @@ const periodData = ref<CoreStatisticPeriodData>({
     thisWeek: 0,
     thisYear: 0,
     today: 0,
-    total: 0
+    total: 0,
   },
   submit: {
     lastMonth: 0,
@@ -426,40 +596,78 @@ const periodData = ref<CoreStatisticPeriodData>({
     thisWeek: 0,
     thisYear: 0,
     today: 0,
-    total: 0
-  }
-})
+    total: 0,
+  },
+});
 
-const mode = ref<'ac' | 'submit'>('ac')
+type PeriodMetricKey = keyof CoreStatisticPeriodItem | "percentage";
+
+const platformPeriodData = ref<CoreStatisticPlatformPeriodItem[]>([]);
+const platformLabels: Record<string, string> = {
+  AtCoder: "AtCoder",
+  NowCoder: "牛客",
+  LuoGu: "洛谷",
+  CodeForces: "CodeForces",
+  QOJ: "QOJ",
+};
+
+const mode = ref<"ac" | "submit">("ac");
 
 const currentPeriodData = computed<CoreStatisticPeriodItem>(() => {
-  return periodData.value[mode.value]
-})
+  return periodData.value[mode.value];
+});
+
+const formatRate = (ac: number, submit: number): string => {
+  if (!submit) return "0.00%";
+  return `${((ac / submit) * 100).toFixed(2)}%`;
+};
+
+const platformBreakdown = (metric: PeriodMetricKey) => {
+  return platformPeriodData.value.map((item) => {
+    const value =
+      metric === "percentage"
+        ? formatRate(Number(item.ac.total), Number(item.submit.total))
+        : Number(item[mode.value][metric] || 0).toLocaleString();
+
+    return {
+      platform: item.platform,
+      label: platformLabels[item.platform] || item.platform,
+      value,
+    };
+  });
+};
 
 const getPeriodData = async () => {
   loadingStats.value = true;
   const userId = JWT.getUserInfo()?.userId || -1;
   const response = await API.core.statistic.period(userId);
   Toast.stdResponse(response, false);
-
-  periodData.value = response.data.data
-  analyse.value = Analyse.period(response.data.data)
+  if (response.success) {
+    periodData.value = response.data.data;
+    analyse.value = Analyse.period(response.data.data);
+  }
   loadingStats.value = false;
-}
 
-const getAiSummary = async () =>{
+  const platformResponse = await API.core.statistic.platformPeriod(userId);
+  Toast.stdResponse(platformResponse, false);
+  if (platformResponse.success) {
+    platformPeriodData.value = platformResponse.data.data;
+  }
+};
+
+const getAiSummary = async () => {
   loadingAi.value = true;
-  const userId = JWT.getUserInfo()?.userId
+  const userId = JWT.getUserInfo()?.userId;
   if (!userId) {
-    aiSummary.value = ["登录后查看AI总结"]
+    aiSummary.value = ["登录后查看AI总结"];
     loadingAi.value = false;
-    return
+    return;
   }
   const response = await API.agent.summary.recent(userId);
   Toast.stdResponse(response, false);
   aiSummary.value = response.data.msg;
   loadingAi.value = false;
-}
+};
 
 /*
 卧槽了惊天大无语，传的明明是数字却变成字符串了，逆天
@@ -468,38 +676,38 @@ const getTrendClass = (curr: number, prev: number): string => {
   curr = Number(curr);
   prev = Number(prev);
   if (curr === prev) {
-    return 'equal'
+    return "equal";
   } else if (curr > prev) {
-    return 'up'
+    return "up";
   } else {
-    return 'down'
+    return "down";
   }
-}
+};
 
 const getTrendValue = (curr: number, prev: number): string => {
   curr = Number(curr);
   prev = Number(prev);
   // return (curr - prev >= 0 ? '+' : '') + ((curr - prev) / (prev === 0 ? 1 : prev) * 100).toFixed(2) + '%'
-  return (curr - prev >= 0 ? '+' : '') + (curr - prev)
-}
+  return (curr - prev >= 0 ? "+" : "") + (curr - prev);
+};
 
 const getTrend = (curr: number, prev: number): string => {
   curr = Number(curr);
   prev = Number(prev);
   if (curr === prev) {
-    return '-'
+    return "-";
   } else if (curr > prev) {
-    return '↗'
+    return "↗";
   } else {
-    return '↘'
+    return "↘";
   }
-}
+};
 
 onMounted(() => {
-  getHeatmapData()
-  getPeriodData()
-  getAiSummary()
-})
+  getHeatmapData();
+  getPeriodData();
+  getAiSummary();
+});
 </script>
 
 <style scoped>
@@ -579,25 +787,28 @@ onMounted(() => {
   margin-top: 8px;
 }
 
-.stars{
-  position: absolute;
-  width: 100%;
-  height: 100%;
-}
-
 .stat-card {
   background-color: rgba(255, 255, 255, 0.08);
   position: relative;
   padding: 20px;
   border-radius: 12px;
   overflow: hidden;
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  transition:
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
 }
 
 .stat-card:hover {
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
   transform: translateY(-4px) scale(1.02);
+}
+
+.stat-card:hover .card-header,
+.stat-card:hover .card-data,
+.stat-card:hover .card-footer {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .stat-card:hover::after {
@@ -612,10 +823,16 @@ onMounted(() => {
   left: -18%;
   width: 150%;
   height: 150%;
-  background-image: linear-gradient(hsla(0, 0%, 100%, .0), hsla(0, 0%, 100%, .1) 48%, hsla(0, 0%, 100%, 0) 52%);
+  background-image: linear-gradient(
+    hsla(0, 0%, 100%, 0),
+    hsla(0, 0%, 100%, 0.1) 48%,
+    hsla(0, 0%, 100%, 0) 52%
+  );
   transform: rotate(24deg);
-  opacity: .5;
-  transition: transform .5s ease, opacity .5s ease;
+  opacity: 0.5;
+  transition:
+    transform 0.5s ease,
+    opacity 0.5s ease;
   pointer-events: none;
 }
 
@@ -639,6 +856,9 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 .card-icon {
@@ -667,6 +887,9 @@ onMounted(() => {
 
 .card-data {
   margin-bottom: 16px;
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 .data-value {
@@ -689,6 +912,54 @@ onMounted(() => {
   align-items: center;
   padding-top: 12px;
   border-top: 1px solid var(--divider-color);
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
+}
+
+.platform-breakdown {
+  position: absolute;
+  inset: 18px 20px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  pointer-events: none;
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
+}
+
+.stat-card:hover .platform-breakdown {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.platform-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 24px;
+  color: var(--text-default-color);
+}
+
+.platform-name {
+  overflow: hidden;
+  color: var(--text-light-color);
+  font-size: var(--text-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-value {
+  color: var(--neon-cyan);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .footer-trend {
@@ -809,7 +1080,7 @@ onMounted(() => {
   font-size: var(--text-base);
 }
 
-.aiTip{
+.aiTip {
   font-size: var(--text-xs);
   color: var(--text-light-color);
 }
@@ -819,7 +1090,7 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
 
-  >.card {
+  > .card {
     background-color: var(--background-color-content);
     color: var(--text-default-color);
     text-decoration: none;
@@ -839,31 +1110,31 @@ onMounted(() => {
       border: 1px dashed var(--neon-cyan);
     }
 
-    >.icon {
+    > .icon {
       flex-shrink: 0;
       width: 50px;
       height: 50px;
       overflow: hidden;
       border-radius: 10px;
 
-      >img {
+      > img {
         width: 100%;
         height: 100%;
         object-fit: cover;
       }
     }
 
-    >.info {
+    > .info {
       display: flex;
       flex-direction: column;
       justify-content: center;
       width: 150px;
 
-      >.title {
+      > .title {
         font-size: var(--text-base);
       }
 
-      >.desc {
+      > .desc {
         font-size: var(--text-xs);
         color: var(--text-light-color);
         overflow: hidden;
@@ -908,7 +1179,6 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-
   .header-tabs {
     flex-wrap: wrap;
   }

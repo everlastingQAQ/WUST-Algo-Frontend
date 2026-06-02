@@ -4,15 +4,15 @@
       <div class="page-header">
         <div class="header-title">
           <span class="title-icon">
-            <font-awesome-icon icon="fa-solid fa-bullhorn" />
+            <font-awesome-icon icon="fa-solid fa-envelope" />
           </span>
-          <span class="title-text">公告</span>
+          <span class="title-text">消息</span>
         </div>
       </div>
 
       <div class="bulletin-list" style="position: relative;">
         <LoadingOverlay :show="loading" />
-        <div v-if="bulletins.length === 0 && !loading" class="empty-tip">暂无公告</div>
+        <div v-if="bulletins.length === 0 && invites.length === 0 && !loading" class="empty-tip">暂无消息</div>
         <div
           v-for="item in bulletins"
           :key="item.id"
@@ -37,6 +37,28 @@
           <transition name="expand">
             <div v-if="expandedId === item.id" class="card-content" v-html="item.content"></div>
           </transition>
+        </div>
+        <div
+          v-for="invite in invites"
+          :key="`invite-${invite.id}`"
+          class="bulletin-card invite-card"
+        >
+          <div class="card-header invite-header">
+            <div class="card-title-row">
+              <span class="pinned-badge invite-badge">
+                <font-awesome-icon icon="fa-solid fa-user-group" />
+                邀请
+              </span>
+              <span class="card-title">{{ invite.inviterName || '队长' }} 邀请你加入 {{ invite.groupName || `团队 ${invite.groupId}` }}</span>
+            </div>
+            <div class="card-meta">
+              <span class="meta-time">{{ formatTime(invite.createdAt) }}</span>
+            </div>
+          </div>
+          <div class="invite-actions">
+            <button class="invite-action primary" @click="respondInvite(invite.id, true)">同意</button>
+            <button class="invite-action" @click="respondInvite(invite.id, false)">拒绝</button>
+          </div>
         </div>
       </div>
 
@@ -74,12 +96,15 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import BaseLayout from '@/components/BaseLayout.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
-import API, { type BulletinInfo } from '@/utils/api'
+import { useUserStore } from '@/stores/user'
+import API, { type BulletinInfo, type UserTeamInvite } from '@/utils/api'
 import Toast from '@/utils/toast'
 
 const route = useRoute()
+const userStore = useUserStore()
 const loading = ref(true)
 const bulletins = ref<BulletinInfo[]>([])
+const invites = ref<UserTeamInvite[]>([])
 const currentPage = ref(1)
 const totalPage = ref(1)
 const total = ref(0)
@@ -97,14 +122,22 @@ const pages = computed(() => {
 
 const fetchBulletins = async (page: number) => {
   loading.value = true
-  const response = await API.core.bulletin.list(page, pageSize)
-  Toast.stdResponse(response, false)
-  if (response.success) {
-    bulletins.value = response.data.data
-    total.value = response.data.total
-    totalPage.value = Math.ceil(response.data.total / pageSize)
+  const [bulletinResponse, inviteResponse] = await Promise.all([
+    API.core.bulletin.list(page, pageSize),
+    userStore.isLogin ? API.user.team.invites() : Promise.resolve(null)
+  ])
+  Toast.stdResponse(bulletinResponse, false)
+  if (bulletinResponse.success) {
+    bulletins.value = bulletinResponse.data.data
+    total.value = bulletinResponse.data.total
+    totalPage.value = Math.ceil(bulletinResponse.data.total / pageSize)
     currentPage.value = page
     jumpPage.value = page
+  }
+  if (inviteResponse?.success) {
+    invites.value = inviteResponse.data.list
+  } else {
+    invites.value = []
   }
   loading.value = false
 }
@@ -124,6 +157,14 @@ const formatTime = (timestamp: number): string => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+const respondInvite = async (inviteId: number, accept: boolean) => {
+  const response = await API.user.team.respondInvite(inviteId, accept)
+  Toast.stdResponse(response)
+  if (response.success) {
+    await fetchBulletins(currentPage.value)
+  }
 }
 
 onMounted(() => {
@@ -209,6 +250,14 @@ onMounted(() => {
   border-left: 3px solid var(--neon-cyan);
 }
 
+.invite-card {
+  cursor: default;
+}
+
+.invite-card:hover {
+  transform: none;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -246,6 +295,45 @@ onMounted(() => {
   gap: 8px;
   font-size: var(--text-sm);
   color: var(--text-light-color);
+}
+
+.invite-header {
+  align-items: flex-start;
+}
+
+.invite-badge {
+  background-color: rgba(0, 255, 255, 0.14);
+  color: var(--text-default-color);
+}
+
+.invite-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+}
+
+.invite-action {
+  border: 1px solid var(--divider-color);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--text-light-color);
+  background-color: var(--background-color-1);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 800;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.invite-action.primary {
+  color: var(--text-light-color);
+  background-color: var(--background-color-1);
+}
+
+.invite-action:hover {
+  border-color: var(--neon-cyan);
+  color: var(--text-reverse-color);
+  background-color: var(--neon-cyan);
 }
 
 .meta-divider {

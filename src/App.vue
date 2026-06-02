@@ -5,7 +5,7 @@
 
       <div class="sidebar-logo">
         <div class="logo-icon">
-          <div class="logo-glitch">CWXU-Algo</div>
+          <div class="logo-glitch">WUST-Algo</div>
         </div>
       </div>
 
@@ -46,18 +46,6 @@
           <div class="item-indicator">▶</div>
         </router-link>
 
-        <router-link to="/bulletin" class="section navigation-item" active-class="active">
-          <font-awesome-icon icon="fa-solid fa-bullhorn" class="item-icon" />
-          <div class="item-content">
-            <div class="item-title">
-              <span class="zh">公告</span>
-              <span class="en">Bulletin</span>
-            </div>
-            <div class="item-description">查看公告通知</div>
-          </div>
-          <div class="item-indicator">▶</div>
-        </router-link>
-
         <router-link to="/allActivities" class="section navigation-item" active-class="active">
           <font-awesome-icon icon="fa-solid fa-newspaper" class="item-icon" />
           <div class="item-content">
@@ -70,6 +58,18 @@
           <div class="item-indicator">▶</div>
         </router-link>
 
+        <router-link to="/bulletin" class="section navigation-item" active-class="active">
+          <font-awesome-icon icon="fa-solid fa-envelope" class="item-icon" />
+          <div class="item-content">
+            <div class="item-title">
+              <span class="zh">消息</span>
+              <span class="en">Messages</span>
+            </div>
+            <div class="item-description">查看消息通知</div>
+          </div>
+          <div class="item-indicator">▶</div>
+        </router-link>
+
         <router-link to="/profile" class="section navigation-item" active-class="active" v-if="isLogin">
           <font-awesome-icon icon="fa-solid fa-user" class="item-icon" />
           <div class="item-content">
@@ -78,6 +78,18 @@
               <span class="en">Profile</span>
             </div>
             <div class="item-description">查看/修改个人资料</div>
+          </div>
+          <div class="item-indicator">▶</div>
+        </router-link>
+
+        <router-link to="/statistics" class="section navigation-item" active-class="active">
+          <font-awesome-icon icon="fa-solid fa-chart-line" class="item-icon" />
+          <div class="item-content">
+            <div class="item-title">
+              <span class="zh">数据统计</span>
+              <span class="en">Statistics</span>
+            </div>
+            <div class="item-description">查看全站数据</div>
           </div>
           <div class="item-indicator">▶</div>
         </router-link>
@@ -118,7 +130,7 @@
           <div class="item-indicator">▶</div>
         </router-link>
 
-        <a href="http://bbs.algo.zhiyuansofts.cn/" target="_blank" class="section navigation-item">
+        <a href="https://blog.wustacm.org/" target="_blank" class="section navigation-item">
           <font-awesome-icon icon="fa-solid fa-comment" class=" item-icon" />
           <div class="item-content">
             <div class="item-title">
@@ -210,7 +222,7 @@
       <div class="content-main">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
-            <component :is="Component" />
+            <component :is="Component" :key="route.fullPath" />
           </transition>
         </router-view>
       </div>
@@ -273,7 +285,7 @@ const rainbowInfo = generateRainbowText(info)
 console.log(`
 ${rainbowText.string}
 
-Welcome to CWXU - Algo
+Welcome to WUST - Algo
 
 ${rainbowInfo.string}
 `, ...rainbowText.format, ...rainbowInfo.format);
@@ -390,7 +402,7 @@ onUnmounted(() => {
   border-right: 1px solid var(--divider-color);
   display: flex;
   flex-direction: column;
-  z-index: 10;
+  z-index: 1100;
   transition: background-color 0.3s ease, width 0.3s ease;
 }
 
@@ -484,6 +496,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+  pointer-events: none;
   transition: left 0.6s ease;
 }
 

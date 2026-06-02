@@ -28,9 +28,9 @@
                             <div class="item" v-for="oj in ojPlatforms" :key="oj.key">
                                 <div class="name">{{ oj.label }}</div>
                                 <div class="link"
-                                    :class="!(!user.links[oj.key] && jwtUserInfo?.userId != user.userId) ? 'go' : ''">
-                                    <div v-if="!user.links[oj.key] && jwtUserInfo?.userId != user.userId">未绑定</div>
-                                    <router-link v-else-if="!user.links[oj.key] && jwtUserInfo?.userId == user.userId"
+                                    :class="!(!user.links[oj.key] && currentUserId !== Number(user.userId)) ? 'go' : ''">
+                                    <div v-if="!user.links[oj.key] && currentUserId !== Number(user.userId)">未绑定</div>
+                                    <router-link v-else-if="!user.links[oj.key] && currentUserId === Number(user.userId)"
                                         :to="`/changeProfile?oj=${oj.key}`">去绑定</router-link>
                                     <a v-else target="_blank" :href="user.links[oj.key]">主页</a>
                                 </div>
@@ -47,10 +47,103 @@
                             <a class="item" v-if="user.links.QOJ" target="_blank" :href="user.links.QOJ">QOJ</a>
                         </div>
                     </div>
-                    <div class="actions" v-if="jwtUserInfo?.userId == user.userId">
+                    <div class="actions" :class="{ placeholder: currentUserId !== Number(user.userId) }">
                         <button class="btn def" @click="showUpdateConfirm">更新OJ数据</button>
                         <button class="btn def" @click="router.push('/changeprofile')">编辑个人资料</button>
                         <button class="btn dan" @click="showLogoutConfirm">退出登录</button>
+                    </div>
+                    <div class="team-card" style="position: relative;">
+                        <LoadingOverlay :show="loadingTeam" />
+                        <div class="team-header">
+                            <div class="team-title">
+                                <img class="team-avatar" :src="teamInfo.avatar || '/images/defaultAvatar.png'" alt="">
+                                <div>
+                                    <div class="team-label">团队</div>
+                                    <div class="team-name">{{ teamInfo.name }}</div>
+                                </div>
+                            </div>
+                            <button v-if="isSelfProfile && teamInfo.id === 0 && teamPanelMode === 'idle'" class="team-edit"
+                                @click="startCreateTeam">新建团队</button>
+                            <button v-else-if="canManageTeam && teamPanelMode === 'idle'" class="team-edit"
+                                @click="startEditTeam">编辑团队</button>
+                            <button v-else-if="teamPanelMode !== 'idle'" class="team-edit" @click="closeTeamPanel">收起</button>
+                        </div>
+                        <div v-if="teamPanelMode === 'create'" class="team-form">
+                            <div class="team-panel-title">创建团队</div>
+                            <input v-model="teamForm.name" placeholder="团队名称">
+                            <input v-model="teamForm.avatar" placeholder="团队头像链接（可选）">
+                            <button class="team-action primary wide" @click="createTeam">创建并加入团队</button>
+                        </div>
+                        <div v-else-if="teamPanelMode === 'edit'" class="team-form">
+                            <div class="team-panel-title">编辑团队资料</div>
+                            <input v-model="teamForm.name" placeholder="团队名称">
+                            <input v-model="teamForm.avatar" placeholder="团队头像链接（可选）">
+                            <div class="team-inline-actions">
+                                <button class="team-action primary" @click="updateTeam">保存</button>
+                                <button class="team-action" @click="closeTeamPanel">取消</button>
+                            </div>
+                            <div class="team-panel-title">成员管理</div>
+                            <div class="team-edit-members">
+                                <div class="team-edit-member" v-for="member in teamInfo.members" :key="member.userId">
+                                    <img :src="member.avatar || '/images/defaultAvatar.png'" alt="">
+                                    <div class="member-info">
+                                        <span class="member-name">{{ member.name || member.username }}</span>
+                                        <span class="member-username">
+                                            @{{ member.username }}
+                                            <span v-if="Number(member.userId) === Number(teamInfo.ownerId)">队长</span>
+                                        </span>
+                                    </div>
+                                    <button v-if="Number(member.userId) !== Number(teamInfo.ownerId)"
+                                        class="team-action danger" @click="removeMember(member.userId)">移除</button>
+                                </div>
+                            </div>
+                            <div class="team-panel-title">邀请成员</div>
+                            <div class="team-search">
+                                <input v-model="inviteKeyword" placeholder="输入姓名搜索用户">
+                                <button class="team-action" @click="searchInviteUsers">搜索</button>
+                            </div>
+                            <div class="team-candidates" v-if="inviteCandidates.length > 0">
+                                <button class="team-candidate" v-for="candidate in inviteCandidates"
+                                    :key="candidate.userId" @click="sendInvite(Number(candidate.userId))">
+                                    邀请 {{ candidate.name }} #{{ candidate.userId }}
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="teamOwner" class="team-owner" @click="router.push(`/profile?id=${teamOwner.userId}`)">
+                            <img :src="teamOwner.avatar || '/images/defaultAvatar.png'" alt="">
+                            <div class="team-owner-info">
+                                <div class="team-owner-label">队长</div>
+                                <div class="team-owner-name">{{ teamOwner.name || teamOwner.username }}</div>
+                            </div>
+                        </div>
+                        <div class="team-stats">
+                            <div class="team-stat">
+                                <span class="value">{{ teamInfo.members.length }}</span>
+                                <span class="label">成员</span>
+                            </div>
+                            <div class="team-stat">
+                                <span class="value">{{ teamInfo.acTotal }}</span>
+                                <span class="label">总AC</span>
+                            </div>
+                            <div class="team-stat">
+                                <span class="value">{{ teamInfo.submitTotal }}</span>
+                                <span class="label">总提交</span>
+                            </div>
+                        </div>
+                        <div class="team-members">
+                            <div class="team-member" v-for="member in teamInfo.members.slice(0, 6)" :key="member.userId"
+                                @click="router.push(`/profile?id=${member.userId}`)">
+                                <img :src="member.avatar || '/images/defaultAvatar.png'" alt="">
+                                <div class="member-info">
+                                    <span class="member-name">{{ member.name || member.username }}</span>
+                                    <span class="member-username">@{{ member.username }}<span
+                                            v-if="Number(member.userId) === Number(teamInfo.ownerId)"
+                                            class="member-role">队长</span></span>
+                                </div>
+                                <div class="member-score">{{ member.acTotal }} AC</div>
+                            </div>
+                            <div v-if="!loadingTeam && teamInfo.members.length === 0" class="team-empty">暂无团队成员</div>
+                        </div>
                     </div>
                 </div>
                 <div class="right">
@@ -191,7 +284,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="moblie-actions" v-if="jwtUserInfo?.userId == user.userId">
+                    <div class="moblie-actions" v-if="currentUserId === Number(user.userId)">
                         <button class="btn def" @click="showUpdateConfirm">更新OJ数据</button>
                         <button class="btn def" @click="router.push('/changeprofile')">编辑个人资料</button>
                         <button class="btn dan" @click="showLogoutConfirm">退出登录</button>
@@ -207,14 +300,14 @@
 <script setup lang="ts">
 import BaseLayout from '@/components/BaseLayout.vue'
 import Calendar from '@/components/Calendar.vue';
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import JWT from '../utils/jwt';
 import Confirm from '@/components/confirm.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import { useUserStore } from '@/stores/user';
 import API from '@/utils/api';
-import type { CoreContestListData, CoreStatisticPeriodData, CoreSubmitLogGetByIdData } from '@/utils/api';
+import type { CoreContestListData, CoreStatisticPeriodData, CoreSubmitLogGetByIdData, UserProfileGetByNameList } from '@/utils/api';
 import Toast from '@/utils/toast';
 import type { User } from '@/utils/type';
 import Link from '@/utils/link';
@@ -230,6 +323,7 @@ const currentCalendar = ref(0);
 const currentData = ref(0)
 
 const jwtUserInfo = JWT.getUserInfo();
+const currentUserId = computed(() => Number(jwtUserInfo?.userId || 0))
 
 const user = ref<User>({
     avatar: "",
@@ -256,6 +350,7 @@ const loadingStats = ref(true)
 const loadingHeatmap = ref(true)
 const loadingActivities = ref(true)
 const loadingContests = ref(true)
+const loadingTeam = ref(true)
 
 const ojPlatforms = [
     { key: 'AtCoder' as const, label: 'AtCoder' },
@@ -271,6 +366,50 @@ interface ActivityItem {
     link: string;
     time: string;
 }
+
+interface TeamMember {
+    userId: number;
+    avatar: string;
+    name: string;
+    username: string;
+    acTotal: number;
+    submitTotal: number;
+}
+
+interface TeamInfo {
+    id: number;
+    name: string;
+    avatar: string;
+    ownerId: number;
+    acTotal: number;
+    submitTotal: number;
+    members: TeamMember[];
+}
+
+const teamInfo = ref<TeamInfo>({
+    id: 0,
+    name: '无团队',
+    avatar: '',
+    ownerId: 0,
+    acTotal: 0,
+    submitTotal: 0,
+    members: [] as TeamMember[]
+})
+
+const teamForm = ref({
+    name: '',
+    avatar: ''
+})
+type TeamPanelMode = 'idle' | 'create' | 'edit'
+const teamPanelMode = ref<TeamPanelMode>('idle')
+const inviteKeyword = ref('')
+const inviteCandidates = ref<UserProfileGetByNameList[]>([])
+const isSelfProfile = computed(() => currentUserId.value !== 0 && currentUserId.value === Number(user.value.userId))
+const canManageTeam = computed(() => {
+    if (!isSelfProfile.value || teamInfo.value.id === 0) return false;
+    return Number(teamInfo.value.ownerId) === currentUserId.value;
+})
+const teamOwner = computed(() => teamInfo.value.members.find(member => Number(member.userId) === Number(teamInfo.value.ownerId)))
 
 // 增加占位数据，保证刷新时页面变化小
 const activities = ref<ActivityItem[]>([
@@ -327,6 +466,175 @@ const activities = ref<ActivityItem[]>([
     },
 ])
 
+const chunkedMap = async <T, R>(items: T[], size: number, mapper: (item: T) => Promise<R>): Promise<R[]> => {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += size) {
+        const chunk = items.slice(i, i + size);
+        results.push(...await Promise.all(chunk.map(mapper)));
+    }
+    return results;
+}
+
+const getTeamInfo = async () => {
+    loadingTeam.value = true;
+    teamPanelMode.value = 'idle';
+    inviteCandidates.value = [];
+    const groupId = Number(user.value.groupId) || 0;
+    if (groupId === 0) {
+        teamInfo.value = {
+            id: 0,
+            name: '无团队',
+            avatar: '',
+            ownerId: 0,
+            acTotal: 0,
+            submitTotal: 0,
+            members: []
+        };
+        teamForm.value = { name: '', avatar: '' };
+        loadingTeam.value = false;
+        return;
+    }
+    const teamResponse = await API.user.team.detail(groupId);
+    if (!teamResponse.success) {
+        Toast.stdResponse(teamResponse, false);
+        loadingTeam.value = false;
+        return;
+    }
+    const members = await chunkedMap(teamResponse.data.users, 6, async (member): Promise<TeamMember> => {
+        const response = await API.core.statistic.period(member.userId);
+        const stats = response.success ? response.data.data : null;
+        return {
+            userId: Number(member.userId),
+            avatar: member.avatar,
+            name: member.name,
+            username: member.username,
+            acTotal: stats ? Number(stats.ac.total) : 0,
+            submitTotal: stats ? Number(stats.submit.total) : 0
+        };
+    });
+    const sortedMembers = members.sort((a, b) => b.acTotal - a.acTotal || b.submitTotal - a.submitTotal || a.userId - b.userId);
+
+    teamInfo.value = {
+        id: groupId,
+        name: teamResponse.data.name || `团队 ${groupId}`,
+        avatar: teamResponse.data.avatar || '',
+        ownerId: Number(teamResponse.data.ownerId) || 0,
+        acTotal: sortedMembers.reduce((sum, item) => sum + item.acTotal, 0),
+        submitTotal: sortedMembers.reduce((sum, item) => sum + item.submitTotal, 0),
+        members: sortedMembers
+    };
+    teamForm.value = {
+        name: teamInfo.value.name,
+        avatar: teamInfo.value.avatar
+    };
+    loadingTeam.value = false;
+}
+
+const startEditTeam = () => {
+    teamForm.value = {
+        name: teamInfo.value.name,
+        avatar: teamInfo.value.avatar
+    };
+    inviteKeyword.value = '';
+    inviteCandidates.value = [];
+    teamPanelMode.value = 'edit';
+}
+
+const startCreateTeam = () => {
+    teamForm.value = { name: '', avatar: '' };
+    teamPanelMode.value = 'create';
+}
+
+const closeTeamPanel = () => {
+    teamPanelMode.value = 'idle';
+    inviteKeyword.value = '';
+    inviteCandidates.value = [];
+}
+
+const createTeam = async () => {
+    if (!teamForm.value.name.trim()) {
+        Toast.warn('请填写团队名称');
+        return;
+    }
+    const response = await API.user.team.create({
+        name: teamForm.value.name.trim(),
+        avatar: teamForm.value.avatar.trim(),
+        describe: ''
+    });
+    Toast.stdResponse(response);
+    if (response.success) {
+        user.value.groupId = String(response.data.id);
+        await getTeamInfo();
+        teamPanelMode.value = 'edit';
+    }
+}
+
+const updateTeam = async () => {
+    if (!teamForm.value.name.trim()) {
+        Toast.warn('请填写团队名称');
+        return;
+    }
+    const response = await API.user.team.update({
+        id: teamInfo.value.id,
+        name: teamForm.value.name.trim(),
+        avatar: teamForm.value.avatar.trim(),
+        describe: ''
+    });
+    Toast.stdResponse(response);
+    if (response.success) {
+        teamPanelMode.value = 'idle';
+        await getTeamInfo();
+    }
+}
+
+const searchInviteUsers = async () => {
+    if (!inviteKeyword.value.trim()) {
+        Toast.warn('请输入姓名搜索用户');
+        return;
+    }
+    const response = await API.user.profile.getByName(inviteKeyword.value.trim());
+    Toast.stdResponse(response, false);
+    if (response.success) {
+        const details = await Promise.all(
+            response.data.list.map(async (item) => {
+                const detail = await API.user.profile.getById(Number(item.userId));
+                return {
+                    item,
+                    groupId: detail.success ? Number(detail.data.groupId || 0) : -1
+                };
+            })
+        );
+        inviteCandidates.value = details
+            .filter(({ item, groupId }) => Number(item.userId) !== user.value.userId && groupId === 0)
+            .map(({ item }) => item);
+        if (inviteCandidates.value.length === 0) {
+            Toast.info('没有找到可邀请的无团队用户');
+        }
+    }
+}
+
+const sendInvite = async (inviteeId: number) => {
+    const targetUserId = Number(inviteeId);
+    if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
+        Toast.error('邀请用户ID无效');
+        return;
+    }
+    const response = await API.user.team.invite(targetUserId);
+    Toast.stdResponse(response);
+    if (response.success) {
+        inviteCandidates.value = inviteCandidates.value.filter(item => Number(item.userId) !== targetUserId);
+    }
+}
+
+const removeMember = async (userId: number) => {
+    const response = await API.user.team.removeMember(userId);
+    Toast.stdResponse(response);
+    if (response.success) {
+        await getTeamInfo();
+        teamPanelMode.value = 'edit';
+    }
+}
+
 const getSubmitInfo = async () => {
     loadingActivities.value = true;
     const response = await API.core.submitLog.getById(user.value.userId, -1, 10);
@@ -377,6 +685,7 @@ const getUserInfo = async () => {
     getHeatmapData();
     getData();
     getContests();
+    getTeamInfo();
 }
 
 interface HeatmapData {
@@ -851,6 +1160,23 @@ onMounted(() => {
                 flex-direction: column;
                 width: 100%;
                 gap: 10px;
+
+                &.placeholder {
+                    visibility: hidden;
+                    pointer-events: none;
+                }
+            }
+
+            >.team-card {
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+                width: 100%;
+                padding: 18px;
+                border: 1px solid var(--divider-color);
+                border-radius: 12px;
+                background: var(--background-color-content);
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.06);
             }
         }
 
@@ -900,6 +1226,363 @@ onMounted(() => {
             background-color: var(--neon-cyan);
         }
     }
+}
+
+.team-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.team-title {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 12px;
+}
+
+.team-avatar {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 1px solid var(--divider-color);
+    border-radius: 14px;
+    object-fit: cover;
+    background-color: var(--section-background-color);
+}
+
+.team-label {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+    letter-spacing: 1px;
+}
+
+.team-name {
+    margin-top: 4px;
+    color: var(--text-default-color);
+    font-size: var(--text-lg);
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.team-edit {
+    flex-shrink: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    color: var(--text-light-color);
+    background-color: var(--background-color-1);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: var(--text-xs);
+    line-height: 1;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.team-edit:hover {
+    border-color: var(--neon-cyan);
+    color: var(--text-reverse-color);
+    background-color: var(--neon-cyan);
+}
+
+.team-panel-title {
+    color: var(--text-default-color);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    margin-top: 2px;
+}
+
+.team-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--divider-color);
+}
+
+.team-form.compact {
+    padding: 10px;
+}
+
+.team-form input,
+.team-search input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    padding: 8px 11px;
+    color: var(--text-default-color);
+    background-color: var(--background-color-1);
+    outline: none;
+    box-shadow: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.team-form input:focus,
+.team-search input:focus {
+    border-color: var(--input-active-color);
+    background-color: var(--background-color-2);
+}
+
+.team-search,
+.team-inline-actions {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+}
+
+.team-search input {
+    flex: 1;
+}
+
+.team-action {
+    flex-shrink: 0;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    color: var(--text-light-color);
+    background-color: var(--background-color-1);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: var(--text-sm);
+    line-height: 1;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.team-action.primary {
+    color: var(--text-default-color);
+    background-color: var(--background-color-2);
+}
+
+.team-action.danger {
+    color: var(--text-light-color);
+    background-color: var(--background-color-1);
+}
+
+.team-action.wide {
+    width: 100%;
+}
+
+.team-action:hover {
+    border-color: var(--neon-cyan);
+    color: var(--text-reverse-color);
+    background-color: var(--neon-cyan);
+}
+
+.team-action.danger:hover {
+    border-color: #f44336;
+    color: #fff;
+    background-color: #f44336;
+}
+
+.team-candidates {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.team-candidate {
+    padding: 10px 0;
+    border: none;
+    border-bottom: 1px solid var(--divider-color);
+    color: var(--text-default-color);
+    background-color: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.team-candidate:last-child {
+    border-bottom: none;
+}
+
+.team-candidate:hover {
+    color: var(--neon-cyan);
+    transform: translateX(4px);
+}
+
+.team-edit-members {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.team-edit-member {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--divider-color);
+    background-color: transparent;
+}
+
+.team-edit-member:last-child {
+    border-bottom: none;
+}
+
+.team-edit-member img {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.team-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.team-owner {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 2px 0 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.team-owner:hover {
+    transform: translateX(2px);
+}
+
+.team-owner img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--divider-color);
+    background-color: var(--section-background-color);
+}
+
+.team-owner-info {
+    min-width: 0;
+}
+
+.team-owner-label {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+}
+
+.team-owner-name {
+    margin-top: 4px;
+    color: var(--text-default-color);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.team-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 10px;
+    background-color: var(--section-background-color);
+}
+
+.team-stat .value {
+    color: var(--neon-cyan);
+    font-size: var(--text-lg);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-stat .label {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+}
+
+.team-members {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.team-member {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.team-member:hover {
+    background-color: var(--section-background-color);
+    transform: translateX(2px);
+}
+
+.team-member img {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--divider-color);
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: var(--section-background-color);
+}
+
+.member-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.member-name,
+.member-username {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.member-name {
+    color: var(--text-default-color);
+    font-size: var(--text-sm);
+    font-weight: 700;
+}
+
+.member-username {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+}
+
+.member-role {
+    margin-left: 8px;
+    color: var(--neon-cyan);
+    font-weight: 800;
+}
+
+.member-score {
+    color: var(--neon-cyan);
+    font-size: var(--text-xs);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-empty {
+    padding: 10px 0;
+    color: var(--text-light-color);
+    font-size: var(--text-sm);
+    text-align: center;
 }
 
 .activities {
@@ -1219,6 +1902,7 @@ onMounted(() => {
     .container>.top>.left {
         width: 100%;
         flex-direction: row;
+        flex-wrap: wrap;
 
         >.avatar {
             width: 200px;
@@ -1230,6 +1914,10 @@ onMounted(() => {
 
         >.actions {
             width: 150px;
+        }
+
+        >.team-card {
+            width: calc(100% - 36px);
         }
     }
 
@@ -1350,6 +2038,11 @@ onMounted(() => {
 
                 >.actions {
                     display: none;
+                }
+
+                >.team-card {
+                    width: calc(100% - 40px);
+                    margin-top: 16px;
                 }
             }
 
