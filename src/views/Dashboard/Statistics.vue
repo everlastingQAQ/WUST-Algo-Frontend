@@ -304,6 +304,14 @@
                     <div class="rank-user-info">
                       <span class="rank-name">{{ item.name }}</span>
                       <span class="rank-username">{{ item.subText }}</span>
+                      <span
+                        v-if="item.status"
+                        class="rank-status"
+                        :class="`tone-${item.status.tone}`"
+                        :title="item.status.description"
+                      >
+                        {{ item.status.label }}
+                      </span>
                     </div>
                   </div>
                   <div v-else class="rank-team">
@@ -373,6 +381,7 @@ import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import { buildTrainingStatuses, type TrainingStatusBadge } from "@/utils/trainingStatus";
 
 // 导入 ECharts 相关
 import { use } from "echarts/core";
@@ -677,6 +686,7 @@ interface RankingRow {
   submitTotal: number;
   lastSubmit: string;
   members: number;
+  status?: TrainingStatusBadge;
   scoreMembers?: number;
   groupId?: number;
 }
@@ -832,19 +842,23 @@ const getRankingData = async () => {
   const users = allUsers.filter((user) => !isSystemAdminAccount(user));
   const rows = await chunkedMap(users, 6, async (user): Promise<RankingRow> => {
     const response = await API.core.statistic.period(user.userId);
+    const period = response.success ? response.data.data : null;
     return {
       rank: 0,
       id: Number(user.userId),
       avatar: user.avatar,
       name: user.name || user.username,
       subText: `@${user.username}`,
-      acTotal: response.success ? Number(response.data.data.ac.total) : 0,
-      submitTotal: response.success
-        ? Number(response.data.data.submit.total)
-        : 0,
+      acTotal: period ? Number(period.ac.total) : 0,
+      submitTotal: period ? Number(period.submit.total) : 0,
       lastSubmit: user.lastSubmit,
       members: 1,
       groupId: Number(user.groupId),
+      status: buildTrainingStatuses({
+        period,
+        lastSubmit: user.lastSubmit,
+        maxCount: 1,
+      })[0],
     };
   });
 
@@ -1236,6 +1250,33 @@ onBeforeUnmount(() => {
   .rank-username {
     color: var(--text-light-color);
     font-size: var(--text-xs);
+  }
+
+  .rank-status {
+    width: fit-content;
+    padding: 2px 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 999px;
+    color: var(--text-light-color);
+    background-color: var(--section-background-color);
+    font-size: var(--text-xs);
+    font-weight: 700;
+
+    &.tone-steady,
+    &.tone-rising,
+    &.tone-intense,
+    &.tone-night,
+    &.tone-explore {
+      border-color: oklch(from var(--neon-cyan) l c h / 0.45);
+      color: var(--neon-cyan);
+      box-shadow: inset 0 0 12px oklch(from var(--neon-cyan) l c h / 0.08);
+    }
+
+    &.tone-warning {
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #f87171;
+      box-shadow: inset 0 0 12px rgba(248, 113, 113, 0.08);
+    }
   }
 
   .count-cell {

@@ -24,6 +24,17 @@
                             <div class="name">{{ user.name || "萌新" }}</div>
                             <div class="username">{{ user.username || "noob" }}</div>
                         </div>
+                        <div class="training-statuses" v-if="trainingStatuses.length > 0">
+                            <span
+                                v-for="status in trainingStatuses"
+                                :key="status.label"
+                                class="training-status"
+                                :class="`tone-${status.tone}`"
+                                :title="status.description"
+                            >
+                                {{ status.label }}
+                            </span>
+                        </div>
                         <div class="details" v-if="user">
                             <div class="item" v-for="oj in ojPlatforms" :key="oj.key">
                                 <div class="name">{{ oj.label }}</div>
@@ -334,6 +345,7 @@ import Toast from '@/utils/toast';
 import type { User } from '@/utils/type';
 import Link from '@/utils/link';
 import Bot from '@/utils/bot';
+import { buildTrainingStatuses, type TrainingStatusBadge } from '@/utils/trainingStatus';
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { LineChart } from "echarts/charts";
@@ -393,6 +405,9 @@ const loadingActivities = ref(true)
 const loadingContests = ref(true)
 const loadingTeam = ref(true)
 const isCompactScreen = ref(false);
+const trainingStatuses = ref<TrainingStatusBadge[]>([]);
+const recentSubmitLogs = ref<CoreSubmitLogGetByIdData[]>([]);
+const profilePeriodData = ref<CoreStatisticPeriodData | null>(null);
 
 const syncScreenSize = () => {
     isCompactScreen.value = window.innerWidth <= 640;
@@ -411,6 +426,14 @@ interface ActivityItem {
     status: string;
     link: string;
     time: string;
+}
+
+const refreshTrainingStatuses = () => {
+    trainingStatuses.value = buildTrainingStatuses({
+        period: profilePeriodData.value,
+        recentLogs: recentSubmitLogs.value,
+        lastSubmit: recentSubmitLogs.value[0]?.time,
+    });
 }
 
 interface TeamMember {
@@ -683,12 +706,14 @@ const removeMember = async (userId: number) => {
 
 const getSubmitInfo = async () => {
     loadingActivities.value = true;
-    const response = await API.core.submitLog.getById(user.value.userId, -1, 10);
+    const response = await API.core.submitLog.getById(user.value.userId, -1, 80);
     Toast.stdResponse(response, false);
 
     if (response.success) {
+        recentSubmitLogs.value = response.data.data;
+        refreshTrainingStatuses();
         activities.value = [];
-        response.data.data.forEach((item: CoreSubmitLogGetByIdData) => {
+        response.data.data.slice(0, 10).forEach((item: CoreSubmitLogGetByIdData) => {
             const platform = item.platform;
             const lang = item.lang;
             const contest = item.contest;
@@ -1049,6 +1074,8 @@ const getData = async () => {
         const userData: CoreStatisticPeriodData = userResponse.data.data;
         const globalData: CoreStatisticPeriodData = globalResponse.data.data;
         const userCount: number = userCountResponse.data.total;
+        profilePeriodData.value = userData;
+        refreshTrainingStatuses();
         data.value = {
             ac: {
                 today: {
@@ -1341,6 +1368,41 @@ onBeforeUnmount(() => {
 
                 >.moblie-details {
                     display: none;
+                }
+            }
+
+            .training-statuses {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: -8px;
+            }
+
+            .training-status {
+                padding: 4px 10px;
+                border: 1px solid var(--divider-color);
+                border-radius: 999px;
+                color: var(--text-light-color);
+                background-color: var(--section-background-color);
+                font-size: var(--text-xs);
+                font-weight: 700;
+                letter-spacing: 0.5px;
+                transition: all 0.2s ease;
+
+                &.tone-steady,
+                &.tone-rising,
+                &.tone-intense,
+                &.tone-night,
+                &.tone-explore {
+                    border-color: oklch(from var(--neon-cyan) l c h / 0.45);
+                    color: var(--neon-cyan);
+                    box-shadow: inset 0 0 12px oklch(from var(--neon-cyan) l c h / 0.08);
+                }
+
+                &.tone-warning {
+                    border-color: rgba(248, 113, 113, 0.45);
+                    color: #f87171;
+                    box-shadow: inset 0 0 12px rgba(248, 113, 113, 0.08);
                 }
             }
 
