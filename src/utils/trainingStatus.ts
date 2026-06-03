@@ -39,7 +39,12 @@ const toNumber = (value: unknown): number => {
 
 const isAccepted = (status: string): boolean => {
   const normalized = status.trim().toLowerCase();
-  return normalized === "ac" || normalized.includes("accepted");
+  return (
+    normalized === "ac" ||
+    normalized.includes("accepted") ||
+    normalized.includes("答案正确") ||
+    normalized.includes("通过")
+  );
 };
 
 const daysSince = (timestamp?: string | number | null): number | null => {
@@ -61,8 +66,20 @@ const uniqueRecentPlatforms = (logs: CoreSubmitLogGetByIdData[]): number => {
   return new Set(logs.map((log) => log.platform).filter(Boolean)).size;
 };
 
+const problemKey = (log: CoreSubmitLogGetByIdData): string => {
+  const problem = String(log.problem || "").trim();
+  const submitId = String(log.submitId || log.id || "").trim();
+  return `${log.platform}:${problem || submitId}`;
+};
+
 const recentAcceptedCount = (logs: CoreSubmitLogGetByIdData[]): number => {
-  return logs.filter((log) => isAccepted(log.status)).length;
+  const acceptedProblems = new Set<string>();
+  logs.forEach((log) => {
+    if (isAccepted(log.status)) {
+      acceptedProblems.add(problemKey(log));
+    }
+  });
+  return acceptedProblems.size;
 };
 
 const daysAgoSeconds = (days: number): number => nowSeconds() - days * 86400;

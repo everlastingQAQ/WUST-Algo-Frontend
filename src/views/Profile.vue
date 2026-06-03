@@ -797,36 +797,68 @@ const removeMember = async (userId: number) => {
 
 const getSubmitInfo = async () => {
     loadingActivities.value = true;
-    const response = await API.core.submitLog.getById(user.value.userId, -1, 80);
-    Toast.stdResponse(response, false);
+    try {
+        const recentLogs: CoreSubmitLogGetByIdData[] = [];
+        let cursor = -1;
+        const pageSize = 300;
+        const maxLogs = 2000;
+        const minTime = Math.floor(Date.now() / 1000) - 60 * 86400;
 
-    if (response.success) {
-        recentSubmitLogs.value = response.data.data;
+        while (recentLogs.length < maxLogs) {
+            const response = await API.core.submitLog.getById(user.value.userId, cursor, pageSize);
+            Toast.stdResponse(response, false);
+
+            if (!response.success) {
+                break;
+            }
+
+            const pageLogs = response.data.data || [];
+            recentLogs.push(...pageLogs);
+
+            if (pageLogs.length === 0 || pageLogs.length < pageSize) {
+                break;
+            }
+
+            const lastLog = pageLogs[pageLogs.length - 1];
+            if (!lastLog) {
+                break;
+            }
+            cursor = Number(lastLog.time || 0);
+            if (!cursor || cursor < minTime) {
+                break;
+            }
+        }
+
+        recentSubmitLogs.value = recentLogs;
         refreshTrainingStatuses();
         activities.value = [];
-        response.data.data.slice(0, 10).forEach((item: CoreSubmitLogGetByIdData) => {
-            const platform = item.platform;
-            const lang = item.lang;
-            const contest = item.contest;
-            const problem = item.problem;
-            const status = item.status;
-            const time = new Date(Number(item.time) * 1000).toLocaleString('sv-SE', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
-            });
 
-            activities.value.push({
-                title: `在 ${platform} 使用 ${lang} 解决 ${problem || contest}：`,
-                status: status,
-                link: Link.getSubmitLink(platform, contest, item.submitId),
-                time: time,
+        if (recentLogs.length > 0) {
+            recentLogs.slice(0, 10).forEach((item: CoreSubmitLogGetByIdData) => {
+                const platform = item.platform;
+                const lang = item.lang;
+                const contest = item.contest;
+                const problem = item.problem;
+                const status = item.status;
+                const time = new Date(Number(item.time) * 1000).toLocaleString('sv-SE', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+
+                activities.value.push({
+                    title: `在 ${platform} 使用 ${lang} 解决 ${problem || contest}：`,
+                    status: status,
+                    link: Link.getSubmitLink(platform, contest, item.submitId),
+                    time: time,
+                });
             });
-        });
+        }
+    } finally {
         loadingActivities.value = false;
     }
 }
