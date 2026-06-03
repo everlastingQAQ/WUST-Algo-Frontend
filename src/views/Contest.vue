@@ -18,16 +18,17 @@
                     </div>
                 </div>
                 <div class="content">
-                    <div class="contestList" v-if="!loading">
+                    <div v-if="requiresLoginMessage" class="empty-tip">登录后可以查看比赛</div>
+                    <div class="contestList" v-else-if="!loading">
                         <div class="contestItem" v-for="contest in data.list">
-                            <div class="info" @click="router.push({ path: '/contest/' + contest.id })">
+                            <div class="info" @click="openContestDetails(contest.id)">
                                 <div class="platform">{{ contest.platform }}</div>
                                 <div class="title">{{ contest.contestName }}</div>
                                 <div class="time">{{ contest.time }}</div>
                             </div>
                             <div class="actions">
                                 <div class="btn def" @click="toContest(contest.contestUrl)">跳转到比赛主页</div>
-                                <div class="btn def" @click="router.push({ path: '/contest/' + contest.id })">
+                                <div class="btn def" @click="openContestDetails(contest.id)">
                                     查看比赛信息</div>
                             </div>
                         </div>
@@ -77,6 +78,7 @@ const userStore = useUserStore();
 const id = ref(route.query.id);
 const isLogin = userStore.isLogin;
 const userMode = ref(false);
+const requiresLoginMessage = ref(false);
 const user = ref<User>({
     avatar: '',
     email: '',
@@ -108,6 +110,36 @@ const data = ref<{
 })
 
 const loading = ref(true);
+const syncingPageQuery = ref(false);
+
+const pageFromQuery = () => {
+    const raw = Number(route.query.page);
+    return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 1;
+}
+
+const contestQuery = (page: number) => {
+    const query: Record<string, string> = {};
+    if (id.value) {
+        query.id = String(id.value);
+    }
+    if (page > 1) {
+        query.page = String(page);
+    }
+    return query;
+}
+
+const syncPageQuery = async (page: number) => {
+    const nextQuery = contestQuery(page);
+    if (String(route.query.id || '') === String(nextQuery.id || '') && String(route.query.page || '') === String(nextQuery.page || '')) {
+        return;
+    }
+    syncingPageQuery.value = true;
+    try {
+        await router.replace({ path: '/contest', query: nextQuery });
+    } finally {
+        syncingPageQuery.value = false;
+    }
+}
 
 const getUser = async () => {
     const response = await API.user.profile.getById(Number(id.value))
@@ -119,14 +151,27 @@ const getUser = async () => {
 }
 
 const getContestList = async (page: number) => {
-    if (page > data.value.totalPage || page < 1 || page === data.value.currentPage) {
+    if (!userStore.isLogin) {
+        requiresLoginMessage.value = true;
+        loading.value = false;
+        data.value = {
+            list: [],
+            total: 1,
+            totalPage: 1,
+            currentPage: 0
+        };
+        return;
+    }
+
+    const targetPage = Math.max(Number(page) || 1, 1);
+    if (data.value.currentPage !== 0 && (targetPage > data.value.totalPage || targetPage === data.value.currentPage)) {
         return
     }
 
     loading.value = true;
 
     const limit = 10;
-    const offset = (page - 1) * limit;
+    const offset = (targetPage - 1) * limit;
     const userId = userMode.value ? Number(id.value) : -1;
 
     const response = await API.core.contest.list({ limit, offset, userId });
@@ -136,7 +181,9 @@ const getContestList = async (page: number) => {
         data.value.list = response.data.data;
         data.value.total = response.data.total;
         data.value.totalPage = Math.ceil(data.value.total / limit);
-        data.value.currentPage = page;
+        data.value.currentPage = targetPage;
+        jumppage.value = targetPage;
+        await syncPageQuery(targetPage);
     }
     loading.value = false;
 }
@@ -157,7 +204,17 @@ const toContest = (url: string) => {
     window.open(url);
 }
 
-watch(() => route.query.id, async () => {
+const openContestDetails = (contestId: number) => {
+    router.push({
+        path: '/contest/' + contestId,
+        query: contestQuery(data.value.currentPage || pageFromQuery()),
+    })
+}
+
+watch(() => [route.query.id, route.query.page], async () => {
+    if (syncingPageQuery.value) {
+        return;
+    }
     userMode.value = false;
     loading.value = false;
     user.value = {
@@ -183,13 +240,19 @@ watch(() => route.query.id, async () => {
         totalPage: 1,
         currentPage: 0
     };
-    jumppage.value = 1;
+    requiresLoginMessage.value = false;
+    if (!userStore.isLogin) {
+        requiresLoginMessage.value = true;
+        return;
+    }
+    const nextPage = pageFromQuery();
+    jumppage.value = nextPage;
     id.value = route.query.id;
 
     if (id.value) {
         userMode.value = true;
     }
-    getContestList(1);
+    getContestList(nextPage);
     if (userMode.value) {
         getUser();
     }
@@ -285,6 +348,13 @@ watch(() => route.query.id, async () => {
             gap: 16px;
         }
     }
+}
+
+.empty-tip {
+    padding: 48px 0;
+    text-align: center;
+    color: var(--text-light-color);
+    font-size: var(--text-sm);
 }
 
 .contestList {

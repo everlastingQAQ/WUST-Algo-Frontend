@@ -1,7 +1,25 @@
 <template>
   <div class="bulletin-board" style="position: relative;">
     <LoadingOverlay :show="loading" />
-    <div v-if="bulletins.length === 0 && invites.length === 0 && !loading" class="empty-tip">暂无消息</div>
+    <div v-if="bulletins.length === 0 && invites.length === 0 && conversations.length === 0 && !loading" class="empty-tip">暂无消息</div>
+    <div
+      v-for="conversation in conversations"
+      :key="`dm-${conversation.threadId}`"
+      class="bulletin-item dm-item"
+      @click="goToMessage(conversation.otherUser.userId)"
+    >
+      <span class="item-icon">
+        <font-awesome-icon icon="fa-solid fa-envelope" />
+      </span>
+      <div class="invite-main">
+        <span class="item-title">
+          {{ conversation.otherUser.name || conversation.otherUser.username || '已注销用户' }}
+          <span v-if="conversation.unreadCount > 0" class="unread-inline">{{ conversation.unreadCount }}</span>
+        </span>
+        <span class="item-time">{{ conversation.lastMessagePreview || '暂无消息' }}</span>
+      </div>
+      <span class="item-time">{{ formatTime(conversation.lastSentAt) }}</span>
+    </div>
     <div
       v-for="item in bulletins"
       :key="item.id"
@@ -43,10 +61,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import API, { type BulletinInfo, type UserTeamInvite } from '@/utils/api'
+import API, { type BulletinInfo, type MessageConversation, type UserTeamInvite } from '@/utils/api'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import Toast from '@/utils/toast'
 
@@ -55,12 +73,15 @@ const userStore = useUserStore()
 const loading = ref(true)
 const bulletins = ref<BulletinInfo[]>([])
 const invites = ref<UserTeamInvite[]>([])
+const conversations = ref<MessageConversation[]>([])
+let pollTimer: number | undefined
 
 const fetchMessages = async () => {
   loading.value = true
-  const [bulletinResponse, inviteResponse] = await Promise.all([
+  const [bulletinResponse, inviteResponse, conversationResponse] = await Promise.all([
     API.core.bulletin.list(1, 5),
-    userStore.isLogin ? API.user.team.invites() : Promise.resolve(null)
+    userStore.isLogin ? API.user.team.invites() : Promise.resolve(null),
+    userStore.isLogin ? API.user.message.conversations(1, 3) : Promise.resolve(null)
   ])
   if (bulletinResponse.success) {
     bulletins.value = bulletinResponse.data.data
@@ -70,11 +91,20 @@ const fetchMessages = async () => {
   } else {
     invites.value = []
   }
+  if (conversationResponse?.success) {
+    conversations.value = conversationResponse.data.list
+  } else {
+    conversations.value = []
+  }
   loading.value = false
 }
 
 const goToBulletin = (id: number) => {
   router.push(`/bulletin?expand=${id}`)
+}
+
+const goToMessage = (userId: number) => {
+  router.push(`/bulletin?tab=dm&userId=${userId}`)
 }
 
 const respondInvite = async (inviteId: number, accept: boolean) => {
@@ -103,6 +133,15 @@ const formatTime = (timestamp: number): string => {
 
 onMounted(() => {
   fetchMessages()
+  if (userStore.isLogin) {
+    pollTimer = window.setInterval(fetchMessages, 30000)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (pollTimer) {
+    window.clearInterval(pollTimer)
+  }
 })
 </script>
 
@@ -134,6 +173,10 @@ onMounted(() => {
 .invite-item {
   align-items: flex-start;
   gap: 10px;
+}
+
+.dm-item {
+  align-items: flex-start;
 }
 
 .bulletin-item:last-of-type {
@@ -210,6 +253,20 @@ onMounted(() => {
   border-color: var(--neon-cyan);
   color: var(--text-reverse-color);
   background-color: var(--neon-cyan);
+}
+
+.unread-inline {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: var(--text-reverse-color);
+  background-color: var(--neon-cyan);
+  font-size: var(--text-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
 }
 
 .board-footer {

@@ -47,10 +47,13 @@
                             <a class="item" v-if="user.links.QOJ" target="_blank" :href="user.links.QOJ">QOJ</a>
                         </div>
                     </div>
-                    <div class="actions" :class="{ placeholder: currentUserId !== Number(user.userId) }">
-                        <button class="btn def" @click="showUpdateConfirm">更新OJ数据</button>
-                        <button class="btn def" @click="router.push('/changeprofile')">编辑个人资料</button>
-                        <button class="btn dan" @click="showLogoutConfirm">退出登录</button>
+                    <div class="actions">
+                        <template v-if="currentUserId === Number(user.userId)">
+                            <button class="btn def" @click="showUpdateConfirm">更新OJ数据</button>
+                            <button class="btn def" @click="router.push('/changeprofile')">编辑个人资料</button>
+                            <button class="btn dan" @click="showLogoutConfirm">退出登录</button>
+                        </template>
+                        <button v-else-if="currentUserId" class="btn def" @click="openDirectMessage">发消息</button>
                     </div>
                     <div class="team-card" style="position: relative;">
                         <LoadingOverlay :show="loadingTeam" />
@@ -300,10 +303,13 @@
                             </div>
                         </div>
                     </div>
-                    <div class="moblie-actions" v-if="currentUserId === Number(user.userId)">
-                        <button class="btn def" @click="showUpdateConfirm">更新OJ数据</button>
-                        <button class="btn def" @click="router.push('/changeprofile')">编辑个人资料</button>
-                        <button class="btn dan" @click="showLogoutConfirm">退出登录</button>
+                    <div class="moblie-actions" v-if="currentUserId">
+                        <template v-if="currentUserId === Number(user.userId)">
+                            <button class="btn def" @click="showUpdateConfirm">更新OJ数据</button>
+                            <button class="btn def" @click="router.push('/changeprofile')">编辑个人资料</button>
+                            <button class="btn dan" @click="showLogoutConfirm">退出登录</button>
+                        </template>
+                        <button v-else class="btn def" @click="openDirectMessage">发消息</button>
                     </div>
                 </div>
             </div>
@@ -1157,6 +1163,11 @@ const getContests = async () => {
 
 const toContest = (url: string) => {
     window.open(url);
+}
+
+const openDirectMessage = () => {
+    if (!user.value.userId || currentUserId.value === Number(user.value.userId)) return;
+    router.push(`/bulletin?tab=dm&userId=${user.value.userId}`);
 }
 
 const showLogoutConfirm = () => {

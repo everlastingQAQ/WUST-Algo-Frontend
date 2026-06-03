@@ -10,10 +10,11 @@ WUST Algo Frontend 是 WUST ACM 算法训练数据平台的前端项目，基于
 - OJ 绑定：支持 AtCoder、NowCoder、LuoGu、CodeForces、QOJ。
 - 个人资料：头像链接、邮箱通知、密码修改、团队信息与成员刷题数据。
 - 团队系统：创建团队、邀请成员、编辑团队名称和头像、队长管理成员。
-- 消息页：显示系统消息和团队邀请处理入口。
+- 消息页：默认展示私信会话，支持发送私信、未读提醒、系统消息和团队邀请处理入口。
 - 数据统计：公开统计页、用户排名、团队排名、提交趋势图。
-- 后台管理：用户管理、角色/分组调整、密码重置、系统邀请码配置。
+- 后台管理：用户管理、角色/分组调整、密码重置、教练/管理员群发站内消息、系统邀请码配置。
 - 主题与布局：支持多主题、响应式统计页、统一页脚。
+- 访问控制：未登录用户不可查看动态、比赛和排名数据；统计概览仍可公开查看。
 
 ## 当前功能边界
 
@@ -98,6 +99,28 @@ bash deploy/scripts/deploy-frontend.sh
 
 前端会对密码进行 SHA-256 后提交，后端存储和校验的也是哈希值。
 
+## 私信与消息
+
+消息入口位于左侧栏“消息”。默认进入“私信”页签，可搜索用户并发起会话；“系统消息”页签保留团队邀请和系统通知。
+
+前端使用的私信接口：
+
+- `GET /api/user/message/conversations`：会话列表。
+- `GET /api/user/message/thread?userId=<id>`：与指定用户的聊天记录。
+- `POST /api/user/message/send`：发送私信。
+- `POST /api/user/message/read`：标记会话已读。
+- `GET /api/user/message/unread-count`：未读数量。
+- `POST /api/user/message/broadcast`：教练和管理员群发站内消息。
+
+首页消息卡会显示最近私信提醒；个人资料页查看他人主页时提供“发消息”入口。
+
+## 页面访问规则
+
+- 未登录访问 `/allActivities` 时显示“登录后可以查看动态”，不请求动态接口。
+- 未登录访问 `/contest` 或 `/contest/:id` 时显示“登录后可以查看比赛”，不请求比赛接口。
+- 未登录访问 `/statistics` 时保留基础统计和趋势图，但隐藏用户排名和团队排名。
+- 登录后可查看动态、比赛、排名，并可使用私信功能。
+
 ## 常用维护命令
 
 ```bash
@@ -110,7 +133,9 @@ sudo systemctl reload nginx
 
 ```bash
 curl -I http://127.0.0.1:8088/
-curl -I http://127.0.0.1:8088/compare
+curl -I http://127.0.0.1:8088/allActivities
+curl -I http://127.0.0.1:8088/contest
+curl -I http://127.0.0.1:8088/statistics
 ```
 
 由于 Vue Router history fallback，`/compare` 可能仍返回静态站点 `200`，但页面内容应由前端路由渲染为 NotFound，且构建产物中不应包含数据对比入口。

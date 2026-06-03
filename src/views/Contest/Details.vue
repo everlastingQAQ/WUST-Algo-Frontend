@@ -3,7 +3,8 @@
         <template #header>
             比赛 Contest
         </template>
-        <div>
+        <div v-if="requiresLoginMessage" class="empty-placeholder">登录后可以查看比赛</div>
+        <div v-else>
             <div class="contestInfo" style="position: relative;">
                 <LoadingOverlay :show="loadingInfo" />
                 <div class="platform">{{ info.platform || "加载中" }}</div>
@@ -59,11 +60,14 @@ import Rank from '@/components/Rank.vue'
 import API from '@/utils/api'
 import Toast from '@/utils/toast'
 import type { platform } from '@/utils/type'
+import { useUserStore } from '@/stores/user'
 
 // 从url获取id参数
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
 const id = route.params.id
+const requiresLoginMessage = ref(false)
 
 // 加载状态，用于加载时禁用按键
 const loadingInfo = ref(true);
@@ -135,6 +139,13 @@ const switchGroup = (groupId: number) => {
 }
 
 const getRankData = async (page: number) => {
+    if (!userStore.isLogin) {
+        requiresLoginMessage.value = true
+        loadingInfo.value = false
+        loadingRank.value = false
+        return
+    }
+
     if (!id) {
         router.back();
         return;
@@ -223,6 +234,12 @@ const toContest = (url: string) => {
 }
 
 onMounted(() => {
+    if (!userStore.isLogin) {
+        requiresLoginMessage.value = true
+        loadingInfo.value = false
+        loadingRank.value = false
+        return
+    }
     loadGroups()
     getRankData(1);
 })

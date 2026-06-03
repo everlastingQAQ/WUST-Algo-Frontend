@@ -306,6 +306,68 @@ export interface UserTeamInviteListResponse {
   list: UserTeamInvite[];
 }
 
+export interface MessageUser {
+  userId: number;
+  username: string;
+  name: string;
+  avatar: string;
+  deleted: boolean;
+}
+
+export interface MessageConversation {
+  threadId: number;
+  otherUser: MessageUser;
+  lastMessagePreview: string;
+  lastSenderId: number;
+  lastSentAt: number;
+  unreadCount: number;
+}
+
+export interface MessageConversationListResponse {
+  success: boolean;
+  list: MessageConversation[];
+  total: number;
+  page: number;
+  pageSize: number;
+  unreadCount: number;
+}
+
+export interface DirectMessage {
+  id: number;
+  threadId: number;
+  senderId: number;
+  receiverId: number;
+  content: string;
+  isRead: boolean;
+  createdAt: number;
+}
+
+export interface MessageThreadResponse {
+  success: boolean;
+  otherUser: MessageUser;
+  list: DirectMessage[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface MessageSendResponse {
+  success: boolean;
+  message: string;
+  data: DirectMessage;
+}
+
+export interface MessageUnreadCountResponse {
+  success: boolean;
+  unreadCount: number;
+}
+
+export interface MessageBroadcastResponse {
+  success: boolean;
+  message: string;
+  count: number;
+}
+
 export interface UserSystemRegisterInviteCodeRequest {
   inviteCode: string;
 }
@@ -1195,6 +1257,174 @@ export default class API {
           },
           "处理邀请失败",
           null,
+        );
+      },
+    },
+    message: {
+      conversations: async (
+        page = 1,
+        pageSize = 20,
+      ): Promise<stdResponse<MessageConversationListResponse>> => {
+        return apiCall<MessageConversationListResponse>(
+          () =>
+            axios.get<MessageConversationListResponse>(
+              "/api/user/message/conversations",
+              {
+                params: { page, pageSize },
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "获取私信失败" };
+            }
+            return { data: response.data, message: "获取私信成功" };
+          },
+          "获取私信失败",
+          {
+            success: false,
+            list: [],
+            total: 0,
+            page,
+            pageSize,
+            unreadCount: 0,
+          },
+        );
+      },
+      thread: async (
+        userId: number,
+        page = 1,
+        pageSize = 30,
+      ): Promise<stdResponse<MessageThreadResponse>> => {
+        return apiCall<MessageThreadResponse>(
+          () =>
+            axios.get<MessageThreadResponse>("/api/user/message/thread", {
+              params: { userId, page, pageSize },
+              headers: { Authorization: `Bearer ${JWT.token}` },
+            }),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "获取聊天记录失败" };
+            }
+            return { data: response.data, message: "获取聊天记录成功" };
+          },
+          "获取聊天记录失败",
+          {
+            success: false,
+            otherUser: {
+              userId,
+              username: "",
+              name: "",
+              avatar: "",
+              deleted: false,
+            },
+            list: [],
+            total: 0,
+            page,
+            pageSize,
+          },
+        );
+      },
+      send: async (
+        receiverId: number,
+        content: string,
+      ): Promise<stdResponse<MessageSendResponse>> => {
+        return apiCall<MessageSendResponse>(
+          () =>
+            axios.post<MessageSendResponse>(
+              "/api/user/message/send",
+              { receiverId, content },
+              {
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "发送私信失败" };
+            }
+            return {
+              data: response.data,
+              message: response.data.message || "发送成功",
+            };
+          },
+          "发送私信失败",
+          {
+            success: false,
+            message: "",
+            data: {
+              id: 0,
+              threadId: 0,
+              senderId: 0,
+              receiverId,
+              content: "",
+              isRead: false,
+              createdAt: 0,
+            },
+          },
+        );
+      },
+      markRead: async (userId: number): Promise<stdResponse> => {
+        return apiCall(
+          () =>
+            axios.post(
+              "/api/user/message/read",
+              { userId },
+              {
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "标记已读失败" };
+            }
+            return { data: response.data, message: "已读" };
+          },
+          "标记已读失败",
+          null,
+        );
+      },
+      unreadCount: async (): Promise<stdResponse<MessageUnreadCountResponse>> => {
+        return apiCall<MessageUnreadCountResponse>(
+          () =>
+            axios.get<MessageUnreadCountResponse>(
+              "/api/user/message/unread-count",
+              {
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "获取未读消息失败" };
+            }
+            return { data: response.data, message: "获取未读消息成功" };
+          },
+          "获取未读消息失败",
+          { success: false, unreadCount: 0 },
+        );
+      },
+      broadcast: async (
+        content: string,
+      ): Promise<stdResponse<MessageBroadcastResponse>> => {
+        return apiCall<MessageBroadcastResponse>(
+          () =>
+            axios.post<MessageBroadcastResponse>(
+              "/api/user/message/broadcast",
+              { content },
+              {
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "群发消息失败" };
+            }
+            return {
+              data: response.data,
+              message: response.data.message || `已发送给 ${response.data.count} 人`,
+            };
+          },
+          "群发消息失败",
+          { success: false, message: "", count: 0 },
         );
       },
     },

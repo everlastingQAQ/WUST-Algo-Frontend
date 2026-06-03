@@ -10,12 +10,12 @@
                 </div>
                 <div class="header-tabs">
                     <span class="tab" @click="router.push(`/allActivities`)" v-if="userId != -1">查看大家的动态</span>
-                    <span class="tab" @click="router.push(`/allActivities?id=${JWT.getUserInfo()?.userId}`)"
-                        v-else>查看我的动态</span>
+                    <span class="tab" @click="viewMyActivities" v-else>查看我的动态</span>
                 </div>
             </div>
             <div class="content">
-                <div v-if="activities.length != 0" class="activities">
+                <div v-if="requiresLoginMessage" class="empty-tip">登录后可以查看动态</div>
+                <div v-else-if="activities.length != 0" class="activities">
                     <div class="activity" v-for="(activity, index) in activities" :key="index">
                         <div class="title">
                             <!-- <img :src="activity.avatar ? activity.avatar : '/images/defaultAvatar.png'"
@@ -51,23 +51,45 @@ import Toast from '@/utils/toast';
 import type { CoreSubmitLogGetByIdData } from '@/utils/api';
 import { useRouter } from 'vue-router';
 import JWT from '@/utils/jwt';
+import { useUserStore } from '@/stores/user';
 
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 
 const userId = ref<number>(-1);
 const title = ref('');
+const requiresLoginMessage = ref(false);
 
-watch(() => route.query.id, async () => {
-    await getParams();
-
+const resetActivities = () => {
     activities.value = [];
     loading.value = false;
     noMoreData.value = false;
     cursor.value = -1;
+}
+
+watch(() => route.query.id, async () => {
+    resetActivities();
+    const canLoad = await getParams();
+    if (canLoad) {
+        await getNewSubmit(cursor.value);
+    }
 })
 
 const getParams = async () => {
+    requiresLoginMessage.value = false;
+    if (!userStore.isLogin || !JWT.isValid()) {
+        userId.value = -1;
+        title.value = "";
+        requiresLoginMessage.value = true;
+        return false;
+    }
+    if (route.query.id !== undefined && !Number(route.query.id)) {
+        userId.value = -1;
+        title.value = "";
+        requiresLoginMessage.value = true;
+        return false;
+    }
     userId.value = Number(route.query.id) ? Number(route.query.id) : -1;
     if (userId.value === -1) {
         title.value = "";
@@ -80,6 +102,20 @@ const getParams = async () => {
             title.value = '';
         }
     }
+    return true;
+}
+
+const viewMyActivities = () => {
+    const currentUserId = JWT.getUserInfo()?.userId;
+    if (!userStore.isLogin || !currentUserId) {
+        requiresLoginMessage.value = true;
+        activities.value = [];
+        loading.value = false;
+        noMoreData.value = false;
+        Toast.info('登录后可以查看动态');
+        return;
+    }
+    router.push(`/allActivities?id=${currentUserId}`);
 }
 
 // 使用用户列表存储用户信息
@@ -111,6 +147,7 @@ const cursor = ref<number>(-1);
 
 const getNewSubmit = async (currentCursor: number) => {
     // console.log(`准备获取数据：loading:${loading.value}, noMoreData:${noMoreData.value}`);
+    if (requiresLoginMessage.value) return;
     if (loading.value || noMoreData.value) return;
     loading.value = true;
     // console.log("获取数据中");
@@ -239,10 +276,12 @@ const cleanupObserver = () => {
 };
 
 onMounted(() => {
-    getParams();
-
-    // 首次加载数据
-    getNewSubmit(cursor.value);
+    getParams().then((canLoad) => {
+        if (canLoad) {
+            // 首次加载数据
+            getNewSubmit(cursor.value);
+        }
+    });
 
     // 初始化滚动监听
     nextTick(() => {
@@ -258,7 +297,11 @@ onUnmounted(() => {
 
 <style scoped>
 .section {
-    border: 1px solid var(--divider-color);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: calc(100% - 40px);
+    padding: 20px;
     border-radius: 6px;
 
     >.header {
@@ -266,11 +309,27 @@ onUnmounted(() => {
         justify-content: space-between;
         align-items: center;
         padding: 12px 10px;
-        border-bottom: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: var(--background-header);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
     }
 
     >.content {
+        background-color: var(--background-color-content);
+        border-radius: 12px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
         padding: 10px;
+        overflow: auto;
+
+        &::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-color: var(--divider-color);
+            border-radius: 5px;
+        }
     }
 
     .header-title {
@@ -290,21 +349,22 @@ onUnmounted(() => {
         .tab {
             padding: 6px 12px;
             border-radius: 6px;
-            background-color: var(--section-background-color);
             color: var(--text-light-color);
             font-size: var(--text-base);
             white-space: nowrap;
             cursor: pointer;
             transition: all 0.2s ease;
+            -webkit-user-select: none;
+            user-select: none;
 
             &:hover {
                 color: var(--text-default-color);
-                background-color: var(--divider-color);
+                background-color: oklch(from var(--background-color-2) 1 c h / 0.1);
             }
 
             &.active {
                 background-color: var(--neon-cyan);
-                color: var(--background-color-1);
+                color: var(--text-reverse-color);
                 font-weight: 500;
             }
         }
@@ -420,7 +480,8 @@ onUnmounted(() => {
 }
 
 .loading,
-.no-more {
+.no-more,
+.empty-tip {
     text-align: center;
     padding: 10px;
     color: var(--text-light-color);
@@ -430,5 +491,12 @@ onUnmounted(() => {
 .no-more {
     color: var(--text-light-color);
     font-style: italic;
+}
+
+@media (max-width:1000px) {
+    .section {
+        width: 100%;
+        padding: 0;
+    }
 }
 </style>

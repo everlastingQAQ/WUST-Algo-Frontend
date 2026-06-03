@@ -11,6 +11,7 @@
           }}</span>
         </div>
         <div class="header-tabs">
+          <span class="tab" @click="openBroadcastModal">群发消息</span>
           <span class="tab" @click="refresh">刷新</span>
         </div>
       </div>
@@ -305,6 +306,46 @@
       </div>
     </div>
   </div>
+
+  <!-- 群发消息弹窗 -->
+  <div
+    class="modal-overlay"
+    v-if="showBroadcastModal"
+    @click="closeBroadcastModal"
+  >
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <span>群发消息</span>
+        <button class="modal-close" @click="closeBroadcastModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-user">
+          <span class="label">范围：</span>
+          <span>发送给除自己以外的所有用户</span>
+        </div>
+        <div class="modal-field">
+          <label>消息内容</label>
+          <textarea
+            v-model="broadcastForm.content"
+            maxlength="1000"
+            rows="6"
+            placeholder="请输入要群发的消息"
+          ></textarea>
+          <span class="field-hint">{{ broadcastForm.content.length }}/1000</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          class="btn btn-primary"
+          @click="handleBroadcastConfirm"
+          :disabled="broadcastLoading"
+        >
+          确认发送
+        </button>
+        <button class="btn" @click="closeBroadcastModal">取消</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -375,6 +416,11 @@ const nicknameForm = ref({
   name: "",
   email: "",
   avatar: "",
+});
+const showBroadcastModal = ref(false);
+const broadcastLoading = ref(false);
+const broadcastForm = ref({
+  content: "",
 });
 
 const pages = computed(() => {
@@ -568,6 +614,31 @@ const handleNicknameConfirm = async () => {
   if (response.success) {
     closeNicknameModal();
     refresh();
+  }
+};
+
+const openBroadcastModal = () => {
+  broadcastForm.value.content = "";
+  showBroadcastModal.value = true;
+};
+
+const closeBroadcastModal = () => {
+  showBroadcastModal.value = false;
+  broadcastForm.value.content = "";
+};
+
+const handleBroadcastConfirm = async () => {
+  const content = broadcastForm.value.content.trim();
+  if (!content) {
+    Toast.error("消息内容不能为空");
+    return;
+  }
+  broadcastLoading.value = true;
+  const response = await API.user.message.broadcast(content);
+  Toast.stdResponse(response);
+  broadcastLoading.value = false;
+  if (response.success) {
+    closeBroadcastModal();
   }
 };
 
@@ -811,7 +882,8 @@ onMounted(() => {
       gap: 8px;
     }
 
-    .modal-field input {
+    .modal-field input,
+    .modal-field textarea {
       outline: none;
       color: var(--text-default-color);
       border: 1px solid var(--divider-color);
@@ -819,10 +891,25 @@ onMounted(() => {
       padding: 10px 12px;
       background-color: var(--background-color-1);
       border-radius: 6px;
+      font-family: inherit;
+      font-size: var(--text-sm);
     }
 
-    .modal-field input:focus {
+    .modal-field textarea {
+      resize: vertical;
+      min-height: 120px;
+      box-shadow: none;
+    }
+
+    .modal-field input:focus,
+    .modal-field textarea:focus {
       border-color: var(--input-active-color);
+    }
+
+    .field-hint {
+      color: var(--text-light-color);
+      font-size: var(--text-xs);
+      text-align: right;
     }
 
     .label {

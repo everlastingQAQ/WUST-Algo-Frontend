@@ -250,112 +250,114 @@
         <v-chart class="chart" :option="chartOption" autoresize />
       </div>
     </div>
-    <div class="ranking-heading">
-      <h2>{{ rankingMode === "user" ? "用户排名" : "团队排名" }}</h2>
-      <div class="ranking-switch" aria-label="切换排名类型">
-        <button
-          :class="{ active: rankingMode === 'user' }"
-          @click="setRankingMode('user')"
-        >
-          用户排名
-        </button>
-        <button
-          :class="{ active: rankingMode === 'team' }"
-          @click="setRankingMode('team')"
-        >
-          团队排名
-        </button>
-      </div>
-    </div>
-    <div class="ranking-section" style="position: relative">
-      <LoadingOverlay :show="loadingRanking" />
-      <div class="ranking-table-wrapper">
-        <table class="ranking-table">
-          <thead>
-            <tr>
-              <th class="rank-col">排名</th>
-              <th>{{ rankingMode === "user" ? "用户" : "团队" }}</th>
-              <th>{{ rankingMode === "user" ? "刷题数" : "团队总题数" }}</th>
-              <th>提交数</th>
-              <th>最后提交</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in rankingPageRows"
-              :key="`${rankingMode}-${item.id}`"
-            >
-              <td class="rank-col">
-                <span class="rank-badge" :class="getRankClass(item.rank)">{{
-                  item.rank
-                }}</span>
-              </td>
-              <td>
-                <div
-                  v-if="rankingMode === 'user'"
-                  class="rank-user"
-                  @click="router.push(`/profile?id=${item.id}`)"
-                >
-                  <img
-                    :src="item.avatar || '/images/defaultAvatar.png'"
-                    alt=""
-                  />
-                  <div class="rank-user-info">
-                    <span class="rank-name">{{ item.name }}</span>
-                    <span class="rank-username">{{ item.subText }}</span>
-                  </div>
-                </div>
-                <div v-else class="rank-team">
-                  <span class="team-avatar">队</span>
-                  <div class="rank-user-info">
-                    <span class="rank-name">{{ item.name }}</span>
-                    <span class="rank-username">{{ item.members }} 名成员</span>
-                  </div>
-                </div>
-              </td>
-              <td class="count-cell">{{ item.acTotal }}</td>
-              <td class="count-cell">{{ item.submitTotal }}</td>
-              <td>{{ formatDate(item.lastSubmit) }}</td>
-            </tr>
-            <tr v-if="!loadingRanking && rankingPageRows.length === 0">
-              <td colspan="5" class="empty-ranking">暂无排名数据</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="pageNavigation" v-if="rankingTotalPage > 1">
-        <div class="group">
-          <div class="pageButtons" v-if="rankingPage !== 1">
-            <button @click="setRankingPage(rankingPage - 1)">上一页</button>
-          </div>
-          <div class="pageButtons">
-            <button
-              v-for="value in rankingPages"
-              :key="value"
-              :class="value === rankingPage ? 'active' : ''"
-              @click="value === rankingPage ? null : setRankingPage(value)"
-            >
-              {{ value }}
-            </button>
-          </div>
-          <div class="pageButtons" v-if="rankingPage !== rankingTotalPage">
-            <button @click="setRankingPage(rankingPage + 1)">下一页</button>
-          </div>
-        </div>
-        <div class="group">
-          <div class="pageInput">
-            <button @click="setRankingPage(rankingJumpPage)">跳转</button>
-            <input
-              type="number"
-              min="1"
-              :max="rankingTotalPage"
-              v-model="rankingJumpPage"
-            />
-          </div>
-          <div class="pageSum">共 {{ rankingTotalPage }} 页</div>
+    <template v-if="showRanking">
+      <div class="ranking-heading">
+        <h2>{{ rankingMode === "user" ? "用户排名" : "团队排名" }}</h2>
+        <div class="ranking-switch" aria-label="切换排名类型">
+          <button
+            :class="{ active: rankingMode === 'user' }"
+            @click="setRankingMode('user')"
+          >
+            用户排名
+          </button>
+          <button
+            :class="{ active: rankingMode === 'team' }"
+            @click="setRankingMode('team')"
+          >
+            团队排名
+          </button>
         </div>
       </div>
-    </div>
+      <div class="ranking-section" style="position: relative">
+        <LoadingOverlay :show="loadingRanking" />
+        <div class="ranking-table-wrapper">
+          <table class="ranking-table">
+            <thead>
+              <tr>
+                <th class="rank-col">排名</th>
+                <th>{{ rankingMode === "user" ? "用户" : "团队" }}</th>
+                <th>{{ rankingMode === "user" ? "刷题数" : "团队总题数" }}</th>
+                <th>提交数</th>
+                <th>最后提交</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in rankingPageRows"
+                :key="`${rankingMode}-${item.id}`"
+              >
+                <td class="rank-col">
+                  <span class="rank-badge" :class="getRankClass(item.rank)">{{
+                    item.rank
+                  }}</span>
+                </td>
+                <td>
+                  <div
+                    v-if="rankingMode === 'user'"
+                    class="rank-user"
+                    @click="router.push(`/profile?id=${item.id}`)"
+                  >
+                    <img
+                      :src="item.avatar || '/images/defaultAvatar.png'"
+                      alt=""
+                    />
+                    <div class="rank-user-info">
+                      <span class="rank-name">{{ item.name }}</span>
+                      <span class="rank-username">{{ item.subText }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="rank-team">
+                    <span class="team-avatar">队</span>
+                    <div class="rank-user-info">
+                      <span class="rank-name">{{ item.name }}</span>
+                      <span class="rank-username">{{ item.members }} 名成员</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="count-cell">{{ item.acTotal }}</td>
+                <td class="count-cell">{{ item.submitTotal }}</td>
+                <td>{{ formatDate(item.lastSubmit) }}</td>
+              </tr>
+              <tr v-if="!loadingRanking && rankingPageRows.length === 0">
+                <td colspan="5" class="empty-ranking">暂无排名数据</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pageNavigation" v-if="rankingTotalPage > 1">
+          <div class="group">
+            <div class="pageButtons" v-if="rankingPage !== 1">
+              <button @click="setRankingPage(rankingPage - 1)">上一页</button>
+            </div>
+            <div class="pageButtons">
+              <button
+                v-for="value in rankingPages"
+                :key="value"
+                :class="value === rankingPage ? 'active' : ''"
+                @click="value === rankingPage ? null : setRankingPage(value)"
+              >
+                {{ value }}
+              </button>
+            </div>
+            <div class="pageButtons" v-if="rankingPage !== rankingTotalPage">
+              <button @click="setRankingPage(rankingPage + 1)">下一页</button>
+            </div>
+          </div>
+          <div class="group">
+            <div class="pageInput">
+              <button @click="setRankingPage(rankingJumpPage)">跳转</button>
+              <input
+                type="number"
+                min="1"
+                :max="rankingTotalPage"
+                v-model="rankingJumpPage"
+              />
+            </div>
+            <div class="pageSum">共 {{ rankingTotalPage }} 页</div>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -370,6 +372,7 @@ import Toast from "@/utils/toast";
 import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
 
 // 导入 ECharts 相关
 import { use } from "echarts/core";
@@ -385,6 +388,8 @@ import {
 import VChart from "vue-echarts";
 
 const router = useRouter();
+const userStore = useUserStore();
+const showRanking = computed(() => userStore.isLogin);
 
 // 注册 ECharts 模块
 use([
@@ -897,7 +902,7 @@ onMounted(async () => {
   window.addEventListener("resize", syncScreenSize);
   loadingStats.value = true;
   loadingChart.value = true;
-  loadingRanking.value = true;
+  loadingRanking.value = showRanking.value;
   try {
     await Promise.all([getUserCount(), getPeriodData(), getGroupCount()]);
     loadingStats.value = false;
@@ -906,7 +911,9 @@ onMounted(async () => {
   }
   await getDailyData();
   loadingChart.value = false;
-  await getRankingData();
+  if (showRanking.value) {
+    await getRankingData();
+  }
 });
 
 onBeforeUnmount(() => {
