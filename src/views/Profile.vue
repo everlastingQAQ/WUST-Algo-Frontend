@@ -224,8 +224,8 @@
                         <LoadingOverlay :show="loadingSyncStatus" />
                         <div class="header">
                             <div class="header-title">
-                                <span class="title-icon">
-                                    <font-awesome-icon icon="fa-solid fa-signal" />
+                                <span class="title-icon portrait-title-icon">
+                                    <font-awesome-icon icon="fa-solid fa-gauge-high" />
                                 </span>
                                 <span class="title-text">训练画像</span>
                             </div>
@@ -256,17 +256,39 @@
                                 </div>
                             </div>
                             <div class="sync-status-list">
+                                <template v-if="syncStatuses.length > 0">
                                 <div class="sync-status-item" v-for="item in syncStatuses" :key="item.platform">
                                     <div>
                                         <div class="sync-platform">{{ platformLabel(item.platform) }}</div>
                                         <div class="sync-meta">@{{ item.username }} · {{ formatSyncTime(item.lastSuccessAt) }}</div>
                                         <div v-if="item.lastError && item.canViewError" class="sync-error">{{ item.lastError }}</div>
                                     </div>
-                                    <span class="sync-badge" :class="{ stale: item.isStale, failed: item.status === 'failed', running: item.status === 'running' }">
-                                        {{ formatSyncStatus(item) }}
-                                    </span>
+                                    <div class="sync-side">
+                                        <div class="sync-counts">
+                                            <span><strong>{{ platformStats(item.platform).ac }}</strong> 题</span>
+                                            <span>{{ platformStats(item.platform).submit }} 提交</span>
+                                        </div>
+                                        <span class="sync-badge" :class="{ stale: item.isStale, failed: item.status === 'failed', running: item.status === 'running' }">
+                                            {{ formatSyncStatus(item) }}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div class="sync-empty" v-if="!loadingSyncStatus && syncStatuses.length === 0">暂无 OJ 绑定，绑定后会显示数据可信度。</div>
+                                </template>
+                                <template v-else-if="platformPeriodRows.length > 0">
+                                <div class="sync-status-item" v-for="item in platformPeriodRows" :key="item.platform">
+                                    <div>
+                                        <div class="sync-platform">{{ platformLabel(item.platform) }}</div>
+                                        <div class="sync-meta">平台统计</div>
+                                    </div>
+                                    <div class="sync-side">
+                                        <div class="sync-counts">
+                                            <span><strong>{{ item.ac.total }}</strong> 题</span>
+                                            <span>{{ item.submit.total }} 提交</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                </template>
+                                <div class="sync-empty" v-if="!loadingSyncStatus && syncStatuses.length === 0 && platformPeriodRows.length === 0">暂无 OJ 绑定，绑定后会显示数据同步状态。</div>
                             </div>
                         </div>
                     </div>
@@ -390,7 +412,7 @@ import Confirm from '@/components/confirm.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import { useUserStore } from '@/stores/user';
 import API from '@/utils/api';
-import type { CoreContestListData, CoreStatisticPeriodData, CoreSubmitLogGetByIdData, SpiderJobInfo, SpiderSyncStatusInfo, UserProfileGetByNameList } from '@/utils/api';
+import type { CoreContestListData, CoreStatisticPeriodData, CoreStatisticPlatformPeriodItem, CoreSubmitLogGetByIdData, SpiderJobInfo, SpiderSyncStatusInfo, UserProfileGetByNameList } from '@/utils/api';
 import Toast from '@/utils/toast';
 import type { User } from '@/utils/type';
 import Link from '@/utils/link';
@@ -459,6 +481,7 @@ const trainingStatuses = ref<TrainingStatusBadge[]>([]);
 const trainingPortrait = ref<TrainingPortrait | null>(null);
 const recentSubmitLogs = ref<CoreSubmitLogGetByIdData[]>([]);
 const profilePeriodData = ref<CoreStatisticPeriodData | null>(null);
+const platformPeriodStats = ref<CoreStatisticPlatformPeriodItem[]>([]);
 const syncStatuses = ref<SpiderSyncStatusInfo[]>([]);
 const loadingSyncStatus = ref(false);
 const activeSpiderJob = ref<SpiderJobInfo | null>(null);
@@ -536,6 +559,17 @@ const canManageTeam = computed(() => {
     return Number(teamInfo.value.ownerId) === currentUserId.value;
 })
 const teamOwner = computed(() => teamInfo.value.members.find(member => Number(member.userId) === Number(teamInfo.value.ownerId)))
+const platformPeriodRows = computed(() => {
+    return platformPeriodStats.value.filter((item) => Number(item.ac?.total || 0) > 0 || Number(item.submit?.total || 0) > 0);
+})
+
+const platformStats = (platform: string) => {
+    const item = platformPeriodStats.value.find((stat) => stat.platform === platform);
+    return {
+        ac: Number(item?.ac?.total || 0),
+        submit: Number(item?.submit?.total || 0),
+    };
+}
 
 // 增加占位数据，保证刷新时页面变化小
 const activities = ref<ActivityItem[]>([
@@ -1118,15 +1152,23 @@ const getGrowClass = (grow: number | undefined) => {
 const getData = async () => {
     const userId = user.value.userId
 
-    const [userResponse, globalResponse, userCountResponse] = await Promise.all([
+    const [userResponse, globalResponse, userCountResponse, platformResponse] = await Promise.all([
         API.core.statistic.period(userId),
         API.core.statistic.period(-1),
-        API.user.profile.list(1)
+        API.user.profile.list(1),
+        API.core.statistic.platformPeriod(userId)
     ]);
 
     Toast.stdResponse(userResponse, false);
     Toast.stdResponse(globalResponse, false);
     Toast.stdResponse(userCountResponse, false);
+    Toast.stdResponse(platformResponse, false);
+
+    if (platformResponse.success) {
+        platformPeriodStats.value = platformResponse.data.data;
+    } else {
+        platformPeriodStats.value = [];
+    }
 
     if (userResponse.success && globalResponse.success && userCountResponse.success) {
         const userData: CoreStatisticPeriodData = userResponse.data.data;
@@ -1284,10 +1326,8 @@ const formatSyncTime = (timestamp: number) => {
 
 const formatSyncStatus = (item: SpiderSyncStatusInfo) => {
     if (item.status === "running") return "抓取中";
-    if (item.status === "failed") return "失败";
-    if (item.status === "never") return "未同步";
-    if (item.isStale) return "可能过期";
-    return "可信";
+    if (item.status === "success" && !item.isStale) return "已同步";
+    return "未同步";
 }
 
 const formatJobStatus = (status: string) => {
@@ -1993,6 +2033,10 @@ onBeforeUnmount(() => {
     color: var(--text-default-color);
 }
 
+.portrait-title-icon {
+    color: var(--active-color);
+}
+
 .portrait-main {
     display: flex;
     align-items: center;
@@ -2102,6 +2146,30 @@ onBeforeUnmount(() => {
 .sync-platform {
     color: var(--text-default-color);
     font-weight: 800;
+}
+
+.sync-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.sync-counts {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.sync-counts strong {
+    color: var(--active-color);
+    font-size: var(--text-sm);
 }
 
 .sync-error {
@@ -2642,6 +2710,15 @@ onBeforeUnmount(() => {
         align-items: flex-start;
         flex-direction: column;
         gap: 8px;
+    }
+
+    .sync-side {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .sync-counts {
+        align-items: flex-start;
     }
 
     .sync-badge {
