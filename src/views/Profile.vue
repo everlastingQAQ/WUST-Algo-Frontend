@@ -220,6 +220,56 @@
                             </div>
                         </div>
                     </div>
+                    <div class="section insight-section" style="position: relative;">
+                        <LoadingOverlay :show="loadingSyncStatus" />
+                        <div class="header">
+                            <div class="header-title">
+                                <span class="title-icon">
+                                    <font-awesome-icon icon="fa-solid fa-signal" />
+                                </span>
+                                <span class="title-text">训练画像</span>
+                            </div>
+                        </div>
+                        <div class="content">
+                            <div class="portrait-card" v-if="trainingPortrait">
+                                <div class="portrait-main">
+                                    <span class="portrait-label" :class="`tone-${trainingPortrait.primary.tone}`">
+                                        {{ trainingPortrait.primary.label }}
+                                    </span>
+                                    <span>{{ trainingPortrait.summary }}</span>
+                                </div>
+                                <div class="portrait-advice">{{ trainingPortrait.advice }}</div>
+                                <div class="recent-summary">{{ trainingPortrait.recent30Summary }}</div>
+                            </div>
+                            <div v-if="activeSpiderJob" class="spider-job-card" :class="`job-${activeSpiderJob.status}`">
+                                <div>
+                                    <div class="job-title">{{ formatJobStatus(activeSpiderJob.status) }}</div>
+                                    <div class="job-subtitle">
+                                        {{ activeSpiderJob.currentPlatform || '等待调度' }}
+                                        <template v-if="activeSpiderJob.totalPlatforms > 0">
+                                            · {{ activeSpiderJob.finishedPlatforms }}/{{ activeSpiderJob.totalPlatforms }}
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="job-progress">
+                                    <div class="job-progress-bar" :style="{ width: jobProgress(activeSpiderJob) + '%' }"></div>
+                                </div>
+                            </div>
+                            <div class="sync-status-list">
+                                <div class="sync-status-item" v-for="item in syncStatuses" :key="item.platform">
+                                    <div>
+                                        <div class="sync-platform">{{ platformLabel(item.platform) }}</div>
+                                        <div class="sync-meta">@{{ item.username }} · {{ formatSyncTime(item.lastSuccessAt) }}</div>
+                                        <div v-if="item.lastError && item.canViewError" class="sync-error">{{ item.lastError }}</div>
+                                    </div>
+                                    <span class="sync-badge" :class="{ stale: item.isStale, failed: item.status === 'failed', running: item.status === 'running' }">
+                                        {{ formatSyncStatus(item) }}
+                                    </span>
+                                </div>
+                                <div class="sync-empty" v-if="!loadingSyncStatus && syncStatuses.length === 0">暂无 OJ 绑定，绑定后会显示数据可信度。</div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="section" style="position: relative;">
                         <LoadingOverlay :show="loadingHeatmap" />
                         <div class="header">
@@ -340,12 +390,12 @@ import Confirm from '@/components/confirm.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import { useUserStore } from '@/stores/user';
 import API from '@/utils/api';
-import type { CoreContestListData, CoreStatisticPeriodData, CoreSubmitLogGetByIdData, UserProfileGetByNameList } from '@/utils/api';
+import type { CoreContestListData, CoreStatisticPeriodData, CoreSubmitLogGetByIdData, SpiderJobInfo, SpiderSyncStatusInfo, UserProfileGetByNameList } from '@/utils/api';
 import Toast from '@/utils/toast';
 import type { User } from '@/utils/type';
 import Link from '@/utils/link';
 import Bot from '@/utils/bot';
-import { buildTrainingStatuses, type TrainingStatusBadge } from '@/utils/trainingStatus';
+import { buildTrainingPortrait, buildTrainingStatuses, type TrainingPortrait, type TrainingStatusBadge } from '@/utils/trainingStatus';
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { LineChart } from "echarts/charts";
@@ -406,8 +456,13 @@ const loadingContests = ref(true)
 const loadingTeam = ref(true)
 const isCompactScreen = ref(false);
 const trainingStatuses = ref<TrainingStatusBadge[]>([]);
+const trainingPortrait = ref<TrainingPortrait | null>(null);
 const recentSubmitLogs = ref<CoreSubmitLogGetByIdData[]>([]);
 const profilePeriodData = ref<CoreStatisticPeriodData | null>(null);
+const syncStatuses = ref<SpiderSyncStatusInfo[]>([]);
+const loadingSyncStatus = ref(false);
+const activeSpiderJob = ref<SpiderJobInfo | null>(null);
+let spiderJobTimer: number | undefined;
 
 const syncScreenSize = () => {
     isCompactScreen.value = window.innerWidth <= 640;
@@ -429,11 +484,13 @@ interface ActivityItem {
 }
 
 const refreshTrainingStatuses = () => {
-    trainingStatuses.value = buildTrainingStatuses({
+    const input = {
         period: profilePeriodData.value,
         recentLogs: recentSubmitLogs.value,
         lastSubmit: recentSubmitLogs.value[0]?.time,
-    });
+    };
+    trainingStatuses.value = buildTrainingStatuses(input);
+    trainingPortrait.value = buildTrainingPortrait(input);
 }
 
 interface TeamMember {
@@ -757,6 +814,7 @@ const getUserInfo = async () => {
     getData();
     getContests();
     getTeamInfo();
+    getSyncStatus();
 }
 
 interface HeatmapData {
@@ -1161,6 +1219,91 @@ const getData = async () => {
 const updateLog = async () => {
     const response = await API.core.spider.update(user.value.userId);
     Toast.stdResponse(response);
+    const jobId = Number(response.data?.jobId || 0);
+    if (response.success && jobId > 0) {
+        await pollSpiderJob(jobId);
+    }
+}
+
+const stopSpiderJobPolling = () => {
+    if (spiderJobTimer) {
+        window.clearInterval(spiderJobTimer);
+        spiderJobTimer = undefined;
+    }
+}
+
+const pollSpiderJob = async (jobId: number) => {
+    stopSpiderJobPolling();
+    const load = async () => {
+        const response = await API.core.spider.job(jobId);
+        if (!response.success || !response.data?.data) return;
+        activeSpiderJob.value = response.data.data;
+        if (["success", "failed"].includes(activeSpiderJob.value.status)) {
+            stopSpiderJobPolling();
+            await getSyncStatus();
+            await getData();
+            await getSubmitInfo();
+            if (activeSpiderJob.value.status === "success") {
+                Toast.success("OJ 数据更新完成");
+            } else {
+                Toast.error(activeSpiderJob.value.error || "OJ 数据更新失败");
+            }
+        }
+    };
+    await load();
+    if (!activeSpiderJob.value || !["success", "failed"].includes(activeSpiderJob.value.status)) {
+        spiderJobTimer = window.setInterval(load, 2000);
+    }
+}
+
+const getSyncStatus = async () => {
+    if (!user.value.userId || !currentUserId.value) return;
+    loadingSyncStatus.value = true;
+    const response = await API.core.spider.status(user.value.userId);
+    Toast.stdResponse(response, false);
+    if (response.success) {
+        syncStatuses.value = response.data.data;
+    }
+    loadingSyncStatus.value = false;
+}
+
+const platformLabel = (platform: string) => {
+    return ojPlatforms.find((item) => item.key === platform)?.label || platform;
+}
+
+const formatSyncTime = (timestamp: number) => {
+    if (!timestamp) return "未同步";
+    return new Date(timestamp * 1000).toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    });
+}
+
+const formatSyncStatus = (item: SpiderSyncStatusInfo) => {
+    if (item.status === "running") return "抓取中";
+    if (item.status === "failed") return "失败";
+    if (item.status === "never") return "未同步";
+    if (item.isStale) return "可能过期";
+    return "可信";
+}
+
+const formatJobStatus = (status: string) => {
+    const map: Record<string, string> = {
+        queued: "排队中",
+        running: "抓取中",
+        success: "已完成",
+        failed: "失败",
+    };
+    return map[status] || status;
+}
+
+const jobProgress = (job: SpiderJobInfo) => {
+    if (job.status === "success") return 100;
+    if (job.totalPlatforms <= 0) return job.status === "running" ? 20 : 8;
+    return Math.max(8, Math.min(100, Math.round((job.finishedPlatforms / job.totalPlatforms) * 100)));
 }
 
 const showUpdateConfirm = () => {
@@ -1223,6 +1366,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     window.removeEventListener("resize", syncScreenSize);
+    stopSpiderJobPolling();
 })
 </script>
 
@@ -1836,6 +1980,164 @@ onBeforeUnmount(() => {
     text-align: center;
 }
 
+.insight-section .content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.portrait-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--text-default-color);
+}
+
+.portrait-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    line-height: 1.6;
+}
+
+.portrait-label,
+.training-status {
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: var(--text-default-color);
+    background-color: var(--background-color-2);
+    font-size: var(--text-xs);
+    font-weight: 800;
+}
+
+.portrait-label.tone-steady,
+.training-status.tone-steady {
+    color: var(--neon-cyan);
+}
+
+.portrait-label.tone-rising,
+.training-status.tone-rising {
+    color: var(--active-color);
+}
+
+.portrait-label.tone-warning,
+.training-status.tone-warning {
+    color: #ff8585;
+}
+
+.portrait-label.tone-intense,
+.training-status.tone-intense {
+    color: #ffb86c;
+}
+
+.portrait-label.tone-night,
+.training-status.tone-night {
+    color: #9fb5ff;
+}
+
+.portrait-advice,
+.recent-summary,
+.sync-meta,
+.job-subtitle {
+    color: var(--text-light-color);
+    font-size: var(--text-sm);
+    line-height: 1.7;
+}
+
+.spider-job-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    gap: 14px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    background-color: var(--background-color-2);
+}
+
+.job-title {
+    color: var(--text-default-color);
+    font-weight: 800;
+}
+
+.job-progress {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: var(--background-color-1);
+}
+
+.job-progress-bar {
+    height: 100%;
+    border-radius: inherit;
+    background-color: var(--neon-cyan);
+    transition: width 0.25s ease;
+}
+
+.spider-job-card.job-failed .job-progress-bar {
+    background-color: #ff8585;
+}
+
+.spider-job-card.job-success .job-progress-bar {
+    background-color: var(--active-color);
+}
+
+.sync-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.sync-status-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 0;
+    border-top: 1px solid var(--divider-color);
+}
+
+.sync-platform {
+    color: var(--text-default-color);
+    font-weight: 800;
+}
+
+.sync-error {
+    margin-top: 4px;
+    color: #ff8585;
+    font-size: var(--text-xs);
+    overflow-wrap: anywhere;
+}
+
+.sync-badge {
+    flex-shrink: 0;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: var(--neon-cyan);
+    font-size: var(--text-xs);
+    font-weight: 800;
+}
+
+.sync-badge.stale {
+    color: #ffb86c;
+}
+
+.sync-badge.failed {
+    color: #ff8585;
+}
+
+.sync-badge.running {
+    color: var(--active-color);
+}
+
+.sync-empty {
+    color: var(--text-light-color);
+    font-size: var(--text-sm);
+}
+
 .activities {
     display: flex;
     flex-direction: column;
@@ -2330,6 +2632,20 @@ onBeforeUnmount(() => {
 @media (max-width:600px) {
     .profile-chart-container {
         height: 300px;
+    }
+
+    .spider-job-card {
+        grid-template-columns: 1fr;
+    }
+
+    .sync-status-item {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .sync-badge {
+        align-self: flex-start;
     }
 
     .container > .top > .left > .avatar {

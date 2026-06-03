@@ -133,6 +133,64 @@ export interface CodeSpiderSetResponse {
 export interface CodeSpiderUpdateResponse {
   code: string;
   message: string;
+  jobId?: number;
+  [property: string]: any;
+}
+
+export interface SpiderJobInfo {
+  jobId: number;
+  userId: number;
+  requesterId: number;
+  source: "manual" | "cron" | "bind" | string;
+  status: "queued" | "running" | "success" | "failed" | string;
+  needAll: boolean;
+  currentPlatform: string;
+  totalPlatforms: number;
+  finishedPlatforms: number;
+  error: string;
+  createdAt: number;
+  startedAt: number;
+  finishedAt: number;
+  updatedAt: number;
+  [property: string]: any;
+}
+
+export interface SpiderJobResponse {
+  code: number;
+  message: string;
+  data: SpiderJobInfo;
+  [property: string]: any;
+}
+
+export interface SpiderJobsResponse {
+  code: number;
+  message: string;
+  data: SpiderJobInfo[];
+  total: number;
+  [property: string]: any;
+}
+
+export interface SpiderSyncStatusInfo {
+  platform: platform;
+  username: string;
+  status: "never" | "queued" | "running" | "success" | "failed" | string;
+  lastStartedAt: number;
+  lastFinishedAt: number;
+  lastSuccessAt: number;
+  lastError: string;
+  lastFetchedCount: number;
+  isStale: boolean;
+  canViewError: boolean;
+  updatedAt: number;
+  [property: string]: any;
+}
+
+export interface SpiderStatusResponse {
+  code: number;
+  message: string;
+  data: SpiderSyncStatusInfo[];
+  staleAfterSeconds: number;
+  generatedAt: number;
   [property: string]: any;
 }
 
@@ -1554,10 +1612,75 @@ export default class API {
             ),
           (response) => {
             if (response.status !== 200) return { message: "更新数据失败" };
-            return { message: response.data.message || "更新数据成功" };
+            return {
+              data: response.data,
+              message: response.data.message || "更新数据成功",
+            };
           },
           "更新数据失败",
           null,
+        );
+      },
+      job: async (jobId: number): Promise<stdResponse<SpiderJobResponse>> => {
+        return apiCall<SpiderJobResponse>(
+          () =>
+            axios.get<SpiderJobResponse>("/api/core/spider/job", {
+              params: { jobId },
+              headers: { Authorization: `Bearer ${JWT.token}` },
+            }),
+          (response) => {
+            if (response.status !== 200) return { message: "获取抓取任务失败" };
+            return {
+              data: response.data,
+              message: response.data.message || "获取抓取任务成功",
+            };
+          },
+          "获取抓取任务失败",
+          { code: 0, message: "", data: null as any },
+        );
+      },
+      jobs: async (
+        request: {
+          scope?: "mine" | "all";
+          status?: string;
+          page?: number;
+          pageSize?: number;
+          userId?: number;
+        } = {},
+      ): Promise<stdResponse<SpiderJobsResponse>> => {
+        return apiCall<SpiderJobsResponse>(
+          () =>
+            axios.get<SpiderJobsResponse>("/api/core/spider/jobs", {
+              params: request,
+              headers: { Authorization: `Bearer ${JWT.token}` },
+            }),
+          (response) => {
+            if (response.status !== 200) return { message: "获取抓取任务列表失败" };
+            return {
+              data: response.data,
+              message: response.data.message || "获取抓取任务列表成功",
+            };
+          },
+          "获取抓取任务列表失败",
+          { code: 0, message: "", data: [], total: 0 },
+        );
+      },
+      status: async (userId: number): Promise<stdResponse<SpiderStatusResponse>> => {
+        return apiCall<SpiderStatusResponse>(
+          () =>
+            axios.get<SpiderStatusResponse>("/api/core/spider/status", {
+              params: { userId },
+              headers: { Authorization: `Bearer ${JWT.token}` },
+            }),
+          (response) => {
+            if (response.status !== 200) return { message: "获取数据可信度失败" };
+            return {
+              data: response.data,
+              message: response.data.message || "获取数据可信度成功",
+            };
+          },
+          "获取数据可信度失败",
+          { code: 0, message: "", data: [], staleAfterSeconds: 86400, generatedAt: 0 },
         );
       },
     },

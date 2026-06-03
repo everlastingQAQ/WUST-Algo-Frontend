@@ -133,6 +133,42 @@
         </div>
       </div>
     </div>
+    <div class="section spider-task-section">
+      <div class="header">
+        <div class="header-title">
+          <span class="title-icon">
+            <font-awesome-icon icon="fa-solid fa-rotate" />
+          </span>
+          <span class="title-text">抓取任务</span>
+        </div>
+        <div class="header-tabs">
+          <span class="tab" :class="{ active: taskStatusFilter === '' }" @click="setTaskFilter('')">全部</span>
+          <span class="tab" :class="{ active: taskStatusFilter === 'queued' }" @click="setTaskFilter('queued')">排队</span>
+          <span class="tab" :class="{ active: taskStatusFilter === 'running' }" @click="setTaskFilter('running')">抓取中</span>
+          <span class="tab" :class="{ active: taskStatusFilter === 'failed' }" @click="setTaskFilter('failed')">失败</span>
+          <span class="tab" @click="fetchSpiderJobs">刷新</span>
+        </div>
+      </div>
+      <div class="content spider-task-content" style="position: relative">
+        <LoadingOverlay :show="taskLoading" />
+        <div class="task-list" v-if="spiderJobs.length > 0">
+          <div class="task-row" v-for="job in spiderJobs" :key="job.jobId">
+            <div class="task-main">
+              <span class="task-status" :class="`status-${job.status}`">{{ formatTaskStatus(job.status) }}</span>
+              <span>用户 #{{ job.userId }}</span>
+              <span>{{ formatTaskSource(job.source) }}</span>
+              <span v-if="job.currentPlatform">{{ job.currentPlatform }}</span>
+            </div>
+            <div class="task-progress">
+              <div class="task-progress-bar" :style="{ width: jobProgress(job) + '%' }"></div>
+            </div>
+            <div class="task-time">{{ formatTaskTime(job.updatedAt) }}</div>
+            <div class="task-error" v-if="job.error">{{ job.error }}</div>
+          </div>
+        </div>
+        <div class="task-empty" v-else>暂无抓取任务</div>
+      </div>
+    </div>
   </div>
 
   <!-- 角色选择弹窗 -->
@@ -354,7 +390,7 @@ import Toast from "@/utils/toast";
 import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import type { UserRole } from "@/utils/api";
+import type { SpiderJobInfo, UserRole } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 
 const router = useRouter();
@@ -422,6 +458,9 @@ const broadcastLoading = ref(false);
 const broadcastForm = ref({
   content: "",
 });
+const taskLoading = ref(false);
+const taskStatusFilter = ref("");
+const spiderJobs = ref<SpiderJobInfo[]>([]);
 
 const pages = computed(() => {
   if (!data.value) return [];
@@ -680,14 +719,67 @@ const formatDate = (date: string) => {
     hour12: false,
   });
 };
+
+const fetchSpiderJobs = async () => {
+  taskLoading.value = true;
+  const response = await API.core.spider.jobs({
+    scope: "all",
+    status: taskStatusFilter.value,
+    page: 1,
+    pageSize: 20,
+  });
+  Toast.stdResponse(response, false);
+  if (response.success) {
+    spiderJobs.value = response.data.data;
+  }
+  taskLoading.value = false;
+};
+
+const setTaskFilter = (status: string) => {
+  taskStatusFilter.value = status;
+  fetchSpiderJobs();
+};
+
+const formatTaskStatus = (status: string) => {
+  const map: Record<string, string> = {
+    queued: "排队中",
+    running: "抓取中",
+    success: "完成",
+    failed: "失败",
+  };
+  return map[status] || status;
+};
+
+const formatTaskSource = (source: string) => {
+  const map: Record<string, string> = {
+    manual: "手动刷新",
+    cron: "定时刷新",
+    bind: "绑定触发",
+  };
+  return map[source] || source;
+};
+
+const formatTaskTime = (time: number) => {
+  if (!time) return "";
+  return formatDate(String(time));
+};
+
+const jobProgress = (job: SpiderJobInfo) => {
+  if (job.status === "success") return 100;
+  if (job.totalPlatforms <= 0) return job.status === "running" ? 20 : 8;
+  return Math.max(8, Math.min(100, Math.round((job.finishedPlatforms / job.totalPlatforms) * 100)));
+};
+
 const refresh = () => {
   getData(data.value?.currentPage || 1);
+  fetchSpiderJobs();
 };
 
 onMounted(() => {
   getData(1);
   loadRoles();
   loadGroups();
+  fetchSpiderJobs();
 });
 </script>
 
@@ -818,6 +910,105 @@ onMounted(() => {
   .btn-danger:hover {
     background-color: #f00;
     color: #fff;
+  }
+}
+
+.spider-task-section {
+  margin-top: 18px;
+}
+
+.spider-task-content {
+  min-height: 120px;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 180px 160px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--divider-color);
+  border-radius: 10px;
+  background-color: var(--background-color-1);
+}
+
+.task-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.task-status {
+  border: 1px solid var(--divider-color);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.task-status.status-running {
+  color: var(--active-color);
+}
+
+.task-status.status-success {
+  color: var(--neon-cyan);
+}
+
+.task-status.status-failed {
+  color: #ff8585;
+}
+
+.task-status.status-queued {
+  color: #ffb86c;
+}
+
+.task-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--background-color-2);
+}
+
+.task-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--neon-cyan);
+}
+
+.task-time {
+  color: var(--text-light-color);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+
+.task-error {
+  grid-column: 1 / -1;
+  color: #ff8585;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.task-empty {
+  color: var(--text-light-color);
+  text-align: center;
+  padding: 24px 0;
+}
+
+@media (max-width: 760px) {
+  .task-row {
+    grid-template-columns: 1fr;
+  }
+
+  .task-time {
+    text-align: left;
   }
 }
 

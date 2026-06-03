@@ -15,6 +15,14 @@ export interface TrainingStatusBadge {
   tone: TrainingStatusTone;
 }
 
+export interface TrainingPortrait {
+  primary: TrainingStatusBadge;
+  badges: TrainingStatusBadge[];
+  summary: string;
+  advice: string;
+  recent30Summary: string;
+}
+
 interface TrainingStatusInput {
   period?: CoreStatisticPeriodData | null;
   recentLogs?: CoreSubmitLogGetByIdData[];
@@ -55,6 +63,35 @@ const uniqueRecentPlatforms = (logs: CoreSubmitLogGetByIdData[]): number => {
 
 const recentAcceptedCount = (logs: CoreSubmitLogGetByIdData[]): number => {
   return logs.filter((log) => isAccepted(log.status)).length;
+};
+
+const daysAgoSeconds = (days: number): number => nowSeconds() - days * 86400;
+
+const logsInRange = (logs: CoreSubmitLogGetByIdData[], days: number): CoreSubmitLogGetByIdData[] => {
+  const start = daysAgoSeconds(days);
+  return logs.filter((log) => toNumber(log.time) >= start);
+};
+
+const activeDays = (logs: CoreSubmitLogGetByIdData[]): number => {
+  const days = new Set(
+    logs
+      .map((log) => {
+        const time = toNumber(log.time);
+        if (!time) return "";
+        return new Date(time * 1000).toISOString().slice(0, 10);
+      })
+      .filter(Boolean),
+  );
+  return days.size;
+};
+
+const topPlatforms = (logs: CoreSubmitLogGetByIdData[]): string[] => {
+  const counts = new Map<string, number>();
+  logs.forEach((log) => counts.set(log.platform, (counts.get(log.platform) || 0) + 1));
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([platform]) => platform);
 };
 
 const pushUnique = (list: TrainingStatusBadge[], badge: TrainingStatusBadge) => {
@@ -156,4 +193,74 @@ export const buildTrainingStatuses = ({
   }
 
   return badges.slice(0, maxCount);
+};
+
+export const buildTrainingPortrait = ({
+  period,
+  recentLogs = [],
+  lastSubmit,
+  maxCount = 4,
+}: TrainingStatusInput): TrainingPortrait => {
+  const badges = buildTrainingStatuses({ period, recentLogs, lastSubmit, maxCount });
+  const fallback: TrainingStatusBadge = {
+    label: "观察期",
+    description: "训练数据还不够明显，继续积累后会自动更新状态",
+    tone: "neutral",
+  };
+  const primary = badges[0] || fallback;
+  const thisMonthAc = toNumber(period?.ac?.thisMonth);
+  const lastMonthAc = toNumber(period?.ac?.lastMonth);
+  const thisMonthSubmit = toNumber(period?.submit?.thisMonth);
+  const totalAc = toNumber(period?.ac?.total);
+  const totalSubmit = toNumber(period?.submit?.total);
+  const acceptRate = totalSubmit > 0 ? totalAc / totalSubmit : null;
+  const inactiveDays = daysSince(lastSubmit ?? recentLogs[0]?.time);
+  const logs30 = logsInRange(recentLogs, 30);
+  const logs60 = logsInRange(recentLogs, 60);
+  const previous30 = logs60.filter((log) => toNumber(log.time) < daysAgoSeconds(30));
+  const ac30 = recentAcceptedCount(logs30);
+  const previousAc30 = recentAcceptedCount(previous30);
+  const active30 = activeDays(logs30);
+  const platforms30 = topPlatforms(logs30);
+  const submit30 = logs30.length;
+
+  let summary = primary.description;
+  if (primary.label === "爆发上升中") {
+    summary = "近期增长速度突出，训练势头正在抬升。";
+  } else if (primary.label === "稳定训练中") {
+    summary = "近期保持稳定活跃，训练节奏比较健康。";
+  } else if (primary.label === "夜间训练型") {
+    summary = "提交时间偏晚，属于夜间训练特征明显的选手。";
+  } else if (primary.label === "WA 战神") {
+    summary = "提交量不低，但通过率偏低，需要把调试质量拉上来。";
+  }
+
+  let advice = "继续积累有效提交，保持稳定复盘节奏。";
+  if (inactiveDays !== null && inactiveDays >= 7) {
+    advice = "建议先恢复低强度连续训练，别一上来就猛冲难题。";
+  } else if (acceptRate !== null && acceptRate < 0.35 && thisMonthSubmit >= 20) {
+    advice = "建议赛后复盘 WA 原因，优先减少同题重复提交成本。";
+  } else if (thisMonthAc >= 20 && thisMonthAc > lastMonthAc) {
+    advice = "当前状态不错，可以适当提高题目难度或补薄弱平台。";
+  } else if (submit30 >= 30 && ac30 < 8) {
+    advice = "近期提交不少但 AC 偏少，建议放慢节奏做题解复盘。";
+  }
+
+  let trendText = "与上一个 30 天基本持平";
+  const diff = ac30 - previousAc30;
+  if (diff > 0) trendText = `比上一个 30 天增加 ${diff} 题`;
+  if (diff < 0) trendText = `比上一个 30 天减少 ${Math.abs(diff)} 题`;
+  const platformText = platforms30.length > 0 ? `，主要活跃于 ${platforms30.join(" 和 ")}` : "";
+  const recent30Summary =
+    submit30 === 0
+      ? "近 30 天暂时没有提交记录，继续训练后会自动生成总结。"
+      : `近 30 天 AC ${ac30} 题、提交 ${submit30} 次、活跃 ${active30} 天，${trendText}${platformText}。`;
+
+  return {
+    primary,
+    badges,
+    summary,
+    advice,
+    recent30Summary,
+  };
 };
