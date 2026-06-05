@@ -1776,7 +1776,6 @@ onBeforeUnmount(() => {
             /* margin: 0 auto;
             width: 100%; */
             max-width: 1200px;
-            width: calc(100% - 360px);
             gap: 20px;
         }
     }
@@ -2945,7 +2944,7 @@ onBeforeUnmount(() => {
     }
 }
 
-@media (max-width:1000px) {
+@media (max-width:1600px) {
     .container {
         width: calc(100% - 40px);
         padding: 0 20px;
