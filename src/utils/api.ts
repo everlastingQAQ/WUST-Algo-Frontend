@@ -11,6 +11,13 @@ import { hashPassword } from "@/utils/hash";
 import Link from "./link";
 import type { User as UserProfileGetByIdResponse, platform } from "./type";
 
+const recordLocalPasswordChangeSuccess = (userId: number) => {
+  if (typeof window === "undefined" || !userId) return;
+  const key = `wust-password-change-count:${Number(userId)}`;
+  const current = Number(localStorage.getItem(key) || 0);
+  localStorage.setItem(key, String(Number.isFinite(current) ? current + 1 : 1));
+};
+
 export interface stdResponse<T = any> {
   message: string;
   success: boolean;
@@ -922,6 +929,9 @@ export default class API {
           if (response.status === 200 && response.data.success) {
             stdRes.success = true;
             stdRes.message = response.data.message || "密码已更新";
+            if (request.oldPassword) {
+              recordLocalPasswordChangeSuccess(Number(request.userId));
+            }
           } else {
             stdRes.message = response.data.message || "修改密码失败";
           }
@@ -1272,6 +1282,52 @@ export default class API {
             };
           },
           "移除成员失败",
+          null,
+        );
+      },
+      leave: async (): Promise<stdResponse> => {
+        return apiCall(
+          () =>
+            axios.post(
+              "/api/user/team/leave",
+              {},
+              {
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "退出团队失败" };
+            }
+            return {
+              data: response.data,
+              message: response.data.message || "已退出团队",
+            };
+          },
+          "退出团队失败",
+          null,
+        );
+      },
+      disband: async (): Promise<stdResponse> => {
+        return apiCall(
+          () =>
+            axios.post(
+              "/api/user/team/disband",
+              {},
+              {
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "解散团队失败" };
+            }
+            return {
+              data: response.data,
+              message: response.data.message || "团队已解散",
+            };
+          },
+          "解散团队失败",
           null,
         );
       },

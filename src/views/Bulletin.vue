@@ -8,20 +8,12 @@
           </span>
           <span class="title-text">消息</span>
         </div>
-        <div class="message-tabs">
-          <button :class="{ active: activeTab === 'dm' }" @click="switchTab('dm')">
-            私信
-            <span v-if="unreadCount > 0" class="tab-badge">{{ unreadCount }}</span>
-          </button>
-          <button :class="{ active: activeTab === 'system' }" @click="switchTab('system')">系统消息</button>
-        </div>
       </div>
 
-      <section v-if="activeTab === 'dm'" class="dm-shell">
+      <section class="dm-shell">
         <LoadingOverlay :show="dmLoading" />
-        <div v-if="!userStore.isLogin" class="empty-tip">登录后可以收发私信</div>
-        <template v-else>
-          <aside class="conversation-list">
+        <aside class="conversation-list">
+          <template v-if="userStore.isLogin">
             <div class="dm-search">
               <input
                 v-model="dmSearchKeyword"
@@ -40,12 +32,33 @@
                 {{ candidate.name }} #{{ candidate.userId }}
               </button>
             </div>
+          </template>
+
+          <button
+            class="conversation-item system-entry"
+            :class="{ active: activeTab === 'system' }"
+            @click="openSystemMessages"
+          >
+            <span class="system-entry-icon">
+              <font-awesome-icon icon="fa-solid fa-bell" />
+            </span>
+            <div class="conversation-main">
+              <div class="conversation-top">
+                <span class="conversation-name">系统消息</span>
+                <span class="conversation-time">置顶</span>
+              </div>
+              <div class="conversation-preview">团队邀请与站内通知</div>
+            </div>
+            <span v-if="invites.length > 0" class="unread-dot">{{ invites.length }}</span>
+          </button>
+
+          <template v-if="userStore.isLogin">
             <div v-if="conversations.length === 0 && !dmLoading" class="empty-tip compact">暂无私信</div>
             <button
               v-for="conversation in conversations"
               :key="conversation.threadId"
               class="conversation-item"
-              :class="{ active: selectedUserId === conversation.otherUser.userId }"
+              :class="{ active: activeTab === 'dm' && selectedUserId === conversation.otherUser.userId }"
               @click="openThread(conversation.otherUser.userId)"
             >
               <img :src="avatarOf(conversation.otherUser.avatar)" :alt="conversation.otherUser.name">
@@ -60,137 +73,153 @@
               </div>
               <span v-if="conversation.unreadCount > 0" class="unread-dot">{{ conversation.unreadCount }}</span>
             </button>
-          </aside>
+          </template>
+          <div v-else class="empty-tip compact">登录后可以收发私信</div>
+        </aside>
 
-          <main class="thread-panel">
-            <div v-if="!selectedUserId" class="empty-tip">选择一个会话开始私信</div>
-            <template v-else>
-              <div class="thread-header">
-                <img :src="avatarOf(activeOther.avatar)" :alt="activeOther.name">
-                <div>
-                  <div class="thread-name">{{ activeOther.name || activeOther.username || '已注销用户' }}</div>
-                  <div class="thread-subtitle">@{{ activeOther.username || 'deleted' }}</div>
-                </div>
+        <main class="thread-panel">
+          <template v-if="activeTab === 'system'">
+            <div class="thread-header system-header">
+              <span class="system-entry-icon">
+                <font-awesome-icon icon="fa-solid fa-bell" />
+              </span>
+              <div>
+                <div class="thread-name">系统消息</div>
+                <div class="thread-subtitle">团队邀请与站内通知</div>
               </div>
-              <div class="message-list">
-                <LoadingOverlay :show="threadLoading" />
-                <div v-if="messages.length === 0 && !threadLoading" class="empty-tip compact">还没有消息，发一句打个招呼吧</div>
+            </div>
+            <div class="system-message-panel">
+              <div class="bulletin-list" style="position: relative;">
+                <LoadingOverlay :show="loading" />
+                <div v-if="bulletins.length === 0 && invites.length === 0 && !loading" class="empty-tip">暂无系统消息</div>
                 <div
-                  v-for="message in messages"
-                  :key="message.id"
-                  class="message-bubble"
-                  :class="{ mine: message.senderId === currentUserId }"
+                  v-for="invite in invites"
+                  :key="`invite-${invite.id}`"
+                  class="bulletin-card invite-card"
                 >
-                  <div class="bubble-content">{{ message.content }}</div>
-                  <div class="bubble-time">{{ formatTime(message.createdAt) }}</div>
+                  <div class="card-header invite-header">
+                    <div class="card-title-row">
+                      <span class="pinned-badge invite-badge">
+                        <font-awesome-icon icon="fa-solid fa-user-group" />
+                        邀请
+                      </span>
+                      <span class="card-title">{{ invite.inviterName || '队长' }} 邀请你加入 {{ invite.groupName || `团队 ${invite.groupId}` }}</span>
+                    </div>
+                    <div class="card-meta">
+                      <span class="meta-time">{{ formatTime(invite.createdAt) }}</span>
+                    </div>
+                  </div>
+                  <div class="invite-actions">
+                    <button class="invite-action primary" @click="respondInvite(invite.id, true)">同意</button>
+                    <button class="invite-action" @click="respondInvite(invite.id, false)">拒绝</button>
+                  </div>
+                </div>
+                <div
+                  v-for="item in bulletins"
+                  :key="item.id"
+                  class="bulletin-card"
+                  :class="{ pinned: item.isPinned, expanded: expandedId === item.id }"
+                  @click="handleCardClick($event, item.id)"
+                >
+                  <div class="card-header">
+                    <div class="card-title-row">
+                      <span v-if="item.isPinned" class="pinned-badge">
+                        <font-awesome-icon icon="fa-solid fa-thumbtack" />
+                        置顶
+                      </span>
+                      <span class="card-title">{{ item.title }}</span>
+                    </div>
+                    <div class="card-meta">
+                      <span class="meta-author">{{ item.authorName }}</span>
+                      <span class="meta-divider">|</span>
+                      <span class="meta-time">{{ formatTime(item.createdAt) }}</span>
+                    </div>
+                  </div>
+                  <transition name="expand">
+                    <div v-if="expandedId === item.id" class="card-content" v-html="item.content"></div>
+                  </transition>
                 </div>
               </div>
-              <form class="message-compose" @submit.prevent="sendDirectMessage">
-                <textarea
-                  v-model="messageDraft"
-                  maxlength="1000"
-                  rows="3"
-                  placeholder="输入私信内容..."
-                  @keydown.ctrl.enter.prevent="sendDirectMessage"
-                />
-                <div class="compose-footer">
-                  <span>{{ messageDraft.length }}/1000</span>
-                  <button type="submit" :disabled="sending || messageDraft.trim().length === 0">
-                    发送
-                  </button>
+
+              <div class="pageNavigation" v-if="totalPage > 1">
+                <div class="group">
+                  <div class="pageButtons" v-if="currentPage > 1">
+                    <button @click="fetchBulletins(currentPage - 1)">上一页</button>
+                  </div>
+                  <div class="pageButtons">
+                    <button
+                      v-for="value in pages"
+                      :key="value"
+                      :class="value === currentPage ? 'active' : ''"
+                      @click="value === currentPage ? null : fetchBulletins(value)"
+                    >{{ value }}</button>
+                  </div>
+                  <div class="pageButtons" v-if="currentPage < totalPage">
+                    <button @click="fetchBulletins(currentPage + 1)">下一页</button>
+                  </div>
                 </div>
-              </form>
-            </template>
-          </main>
-        </template>
+                <div class="group">
+                  <div class="pageInput">
+                    <button @click="fetchBulletins(jumpPage)">跳转</button>
+                    <input type="number" min="1" :max="totalPage" v-model="jumpPage">
+                  </div>
+                  <div class="pageSum">共 {{ totalPage }} 页</div>
+                </div>
+              </div>
+            </div>
+          </template>
+          <template v-else-if="!userStore.isLogin">
+            <div class="empty-tip">登录后可以收发私信</div>
+          </template>
+          <template v-else-if="!selectedUserId">
+            <div class="empty-tip">选择一个会话开始私信</div>
+          </template>
+          <template v-else>
+            <div class="thread-header">
+              <img :src="avatarOf(activeOther.avatar)" :alt="activeOther.name">
+              <div>
+                <div class="thread-name">{{ activeOther.name || activeOther.username || '已注销用户' }}</div>
+                <div class="thread-subtitle">@{{ activeOther.username || 'deleted' }}</div>
+              </div>
+            </div>
+            <div class="message-list" ref="messageListRef">
+              <LoadingOverlay :show="threadLoading" />
+              <div v-if="messages.length === 0 && !threadLoading" class="empty-tip compact">还没有消息，发一句打个招呼吧</div>
+              <div
+                v-for="message in messages"
+                :key="message.id"
+                class="message-bubble"
+                :class="{ mine: message.senderId === currentUserId }"
+              >
+                <div class="bubble-content">{{ message.content }}</div>
+                <div class="bubble-time">{{ formatTime(message.createdAt) }}</div>
+              </div>
+            </div>
+            <form class="message-compose" @submit.prevent="sendDirectMessage">
+              <textarea
+                v-model="messageDraft"
+                maxlength="1000"
+                rows="3"
+                placeholder="输入私信内容..."
+                @keydown.ctrl.enter.prevent="sendDirectMessage"
+              />
+              <div class="compose-footer">
+                <span>{{ messageDraft.length }}/1000</span>
+                <button type="submit" :disabled="sending || messageDraft.trim().length === 0">
+                  发送
+                </button>
+              </div>
+            </form>
+          </template>
+        </main>
       </section>
-
-      <template v-else>
-        <div class="bulletin-list" style="position: relative;">
-          <LoadingOverlay :show="loading" />
-          <div v-if="bulletins.length === 0 && invites.length === 0 && !loading" class="empty-tip">暂无消息</div>
-          <div
-            v-for="item in bulletins"
-            :key="item.id"
-            class="bulletin-card"
-            :class="{ pinned: item.isPinned, expanded: expandedId === item.id }"
-            @click="handleCardClick($event, item.id)"
-          >
-            <div class="card-header">
-              <div class="card-title-row">
-                <span v-if="item.isPinned" class="pinned-badge">
-                  <font-awesome-icon icon="fa-solid fa-thumbtack" />
-                  置顶
-                </span>
-                <span class="card-title">{{ item.title }}</span>
-              </div>
-              <div class="card-meta">
-                <span class="meta-author">{{ item.authorName }}</span>
-                <span class="meta-divider">|</span>
-                <span class="meta-time">{{ formatTime(item.createdAt) }}</span>
-              </div>
-            </div>
-            <transition name="expand">
-              <div v-if="expandedId === item.id" class="card-content" v-html="item.content"></div>
-            </transition>
-          </div>
-          <div
-            v-for="invite in invites"
-            :key="`invite-${invite.id}`"
-            class="bulletin-card invite-card"
-          >
-            <div class="card-header invite-header">
-              <div class="card-title-row">
-                <span class="pinned-badge invite-badge">
-                  <font-awesome-icon icon="fa-solid fa-user-group" />
-                  邀请
-                </span>
-                <span class="card-title">{{ invite.inviterName || '队长' }} 邀请你加入 {{ invite.groupName || `团队 ${invite.groupId}` }}</span>
-              </div>
-              <div class="card-meta">
-                <span class="meta-time">{{ formatTime(invite.createdAt) }}</span>
-              </div>
-            </div>
-            <div class="invite-actions">
-              <button class="invite-action primary" @click="respondInvite(invite.id, true)">同意</button>
-              <button class="invite-action" @click="respondInvite(invite.id, false)">拒绝</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="pageNavigation" v-if="totalPage > 1">
-          <div class="group">
-            <div class="pageButtons" v-if="currentPage > 1">
-              <button @click="fetchBulletins(currentPage - 1)">上一页</button>
-            </div>
-            <div class="pageButtons">
-              <button
-                v-for="value in pages"
-                :key="value"
-                :class="value === currentPage ? 'active' : ''"
-                @click="value === currentPage ? null : fetchBulletins(value)"
-              >{{ value }}</button>
-            </div>
-            <div class="pageButtons" v-if="currentPage < totalPage">
-              <button @click="fetchBulletins(currentPage + 1)">下一页</button>
-            </div>
-          </div>
-          <div class="group">
-            <div class="pageInput">
-              <button @click="fetchBulletins(jumpPage)">跳转</button>
-              <input type="number" min="1" :max="totalPage" v-model="jumpPage">
-            </div>
-            <div class="pageSum">共 {{ totalPage }} 页</div>
-          </div>
-        </div>
-      </template>
     </div>
   </BaseLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import BaseLayout from '@/components/BaseLayout.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import { useUserStore } from '@/stores/user'
@@ -205,7 +234,6 @@ import API, {
 import Toast from '@/utils/toast'
 
 const route = useRoute()
-const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(true)
 const bulletins = ref<BulletinInfo[]>([])
@@ -232,6 +260,7 @@ const messageDraft = ref('')
 const dmSearchKeyword = ref('')
 const dmSearchCandidates = ref<UserProfileGetByNameList[]>([])
 const dmSearchLoading = ref(false)
+const messageListRef = ref<HTMLElement | null>(null)
 let pollTimer: number | undefined
 
 const pageSize = 10
@@ -244,14 +273,18 @@ const pages = computed(() => {
   return [currentPage.value - 1, currentPage.value, currentPage.value + 1]
 })
 
-const switchTab = (tab: 'dm' | 'system') => {
-  activeTab.value = tab
-  router.replace({ path: '/bulletin', query: tab === 'dm' ? { tab: 'dm', userId: selectedUserId.value || undefined } : {} })
-  if (tab === 'dm') {
-    fetchConversations()
-  } else {
-    fetchBulletins(currentPage.value)
+const scrollMessagesToBottom = async () => {
+  await nextTick()
+  const list = messageListRef.value
+  if (list) {
+    list.scrollTop = list.scrollHeight
   }
+}
+
+const openSystemMessages = async () => {
+  if (activeTab.value === 'system') return
+  activeTab.value = 'system'
+  await fetchBulletins(currentPage.value)
 }
 
 const fetchBulletins = async (page: number) => {
@@ -290,7 +323,7 @@ const fetchConversations = async () => {
         selectedUserId.value = firstConversation.otherUser.userId
       }
     }
-    if (selectedUserId.value) {
+    if (activeTab.value === 'dm' && selectedUserId.value) {
       await fetchThread(selectedUserId.value)
     }
   }
@@ -305,6 +338,38 @@ const fetchUnreadCount = async () => {
   }
 }
 
+const updateConversationPreview = (message: DirectMessage) => {
+  const otherUserId = selectedUserId.value
+  if (!otherUserId) return
+
+  let found = false
+  const nextConversations = conversations.value.map(item => {
+    if (item.otherUser.userId !== otherUserId) return item
+    found = true
+    return {
+      ...item,
+      threadId: message.threadId || item.threadId,
+      lastMessagePreview: message.content,
+      lastSenderId: message.senderId,
+      lastSentAt: message.createdAt,
+      unreadCount: 0
+    }
+  })
+
+  if (!found && activeOther.value.userId) {
+    nextConversations.unshift({
+      threadId: message.threadId,
+      otherUser: activeOther.value,
+      lastMessagePreview: message.content,
+      lastSenderId: message.senderId,
+      lastSentAt: message.createdAt,
+      unreadCount: 0
+    })
+  }
+
+  conversations.value = nextConversations.sort((a, b) => Number(b.lastSentAt || 0) - Number(a.lastSentAt || 0))
+}
+
 const fetchThread = async (userId: number) => {
   if (!userStore.isLogin || !userId) return
   threadLoading.value = true
@@ -314,6 +379,7 @@ const fetchThread = async (userId: number) => {
     selectedUserId.value = userId
     activeOther.value = response.data.otherUser
     messages.value = response.data.list
+    await scrollMessagesToBottom()
     await API.user.message.markRead(userId)
     await fetchUnreadCount()
     conversations.value = conversations.value.map(item =>
@@ -324,8 +390,8 @@ const fetchThread = async (userId: number) => {
 }
 
 const openThread = async (userId: number) => {
+  activeTab.value = 'dm'
   selectedUserId.value = userId
-  router.replace({ path: '/bulletin', query: { tab: 'dm', userId } })
   dmSearchCandidates.value = []
   await fetchThread(userId)
 }
@@ -356,9 +422,11 @@ const sendDirectMessage = async () => {
   const response = await API.user.message.send(selectedUserId.value, content)
   Toast.stdResponse(response)
   if (response.success) {
-    messages.value.push(response.data.data)
+    const sentMessage = response.data.data
+    messages.value.push(sentMessage)
+    updateConversationPreview(sentMessage)
     messageDraft.value = ''
-    await fetchConversations()
+    await scrollMessagesToBottom()
   }
   sending.value = false
 }
@@ -402,12 +470,24 @@ const respondInvite = async (inviteId: number, accept: boolean) => {
 }
 
 watch(() => route.query, async query => {
+  const previousTab = activeTab.value
   const nextTab = routeTab(query)
   activeTab.value = nextTab
   const nextUserId = Number(query.userId || 0)
   if (nextTab === 'dm') {
-    selectedUserId.value = nextUserId
-    await fetchConversations()
+    if (nextUserId && nextUserId !== selectedUserId.value) {
+      selectedUserId.value = nextUserId
+      await fetchThread(nextUserId)
+      return
+    }
+    if (previousTab !== 'dm' || conversations.value.length === 0) {
+      await fetchConversations()
+    }
+  } else if (previousTab !== 'system') {
+    await fetchBulletins(currentPage.value)
+    if (userStore.isLogin && conversations.value.length === 0) {
+      await fetchConversations()
+    }
   }
 })
 
@@ -416,16 +496,15 @@ onMounted(() => {
   if (expandParam) {
     expandedId.value = Number(expandParam)
   }
-  if (activeTab.value === 'dm') {
+  fetchBulletins(1)
+  if (userStore.isLogin) {
     fetchConversations()
-  } else {
-    fetchBulletins(1)
   }
   if (userStore.isLogin) {
     fetchUnreadCount()
     pollTimer = window.setInterval(() => {
       fetchUnreadCount()
-      if (activeTab.value === 'dm' && !threadLoading.value) {
+      if (!threadLoading.value) {
         fetchConversations()
       }
     }, 30000)
@@ -448,6 +527,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-height: 0;
 }
 
 .page-header {
@@ -538,7 +618,8 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);
   gap: 16px;
-  min-height: 580px;
+  height: clamp(520px, calc(100vh - 150px), 760px);
+  min-height: 0;
   position: relative;
 }
 
@@ -547,7 +628,7 @@ onBeforeUnmount(() => {
   background-color: var(--background-color-content);
   border: 1px solid var(--divider-color);
   border-radius: 12px;
-  min-height: 300px;
+  min-height: 0;
 }
 
 .conversation-list {
@@ -555,10 +636,13 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .dm-search {
   display: flex;
+  flex: none;
   gap: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--divider-color);
@@ -583,8 +667,12 @@ onBeforeUnmount(() => {
 
 .dm-candidates {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .dm-candidate {
@@ -626,6 +714,23 @@ onBeforeUnmount(() => {
 .conversation-item.active {
   border-color: var(--neon-cyan);
   background-color: var(--background-color-1);
+}
+
+.system-entry {
+  flex: none;
+}
+
+.system-entry-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  color: var(--neon-cyan);
+  background-color: var(--background-color-1);
+  border: 1px solid var(--divider-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .conversation-item img,
@@ -676,14 +781,20 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
 }
 
 .thread-header {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--divider-color);
+}
+
+.system-header {
+  background: linear-gradient(90deg, var(--background-color-1), transparent);
 }
 
 .thread-name {
@@ -691,14 +802,24 @@ onBeforeUnmount(() => {
   font-weight: 900;
 }
 
+.system-message-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+
 .message-list {
   position: relative;
   flex: 1;
+  min-height: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .message-bubble {
@@ -738,6 +859,7 @@ onBeforeUnmount(() => {
 }
 
 .message-compose {
+  flex: none;
   padding: 12px;
   border-top: 1px solid var(--divider-color);
   display: flex;
@@ -747,7 +869,9 @@ onBeforeUnmount(() => {
 
 .message-compose textarea {
   width: 100%;
-  resize: vertical;
+  min-height: 76px;
+  max-height: 76px;
+  resize: none;
   border: 1px solid var(--divider-color);
   border-radius: 10px;
   padding: 10px 12px;
@@ -926,6 +1050,17 @@ onBeforeUnmount(() => {
 
   .dm-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+
+  .conversation-list {
+    max-height: 260px;
+  }
+
+  .thread-panel {
+    height: min(620px, calc(100vh - 190px));
+    min-height: 420px;
   }
 
   .message-bubble {

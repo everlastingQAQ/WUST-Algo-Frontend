@@ -280,14 +280,17 @@
                 <span class="title-icon">
                   <font-awesome-icon icon="fa-solid fa-calendar-days" />
                 </span>
-                <span class="title-text">训练周报</span>
+                <span class="title-text">训练战报</span>
               </div>
             </div>
 
             <div class="section-secondary-container" style="position: relative">
               <LoadingOverlay :show="loadingWeekly || loadingStats" />
               <div class="weekly-card" v-if="weeklyReport">
-                <div class="weekly-title">{{ weeklyReport.title }}</div>
+                <div class="weekly-title">
+                  <span>本周战报</span>
+                  <strong>{{ weeklyReport.title }}</strong>
+                </div>
                 <div class="weekly-summary">{{ weeklyReport.summary }}</div>
                 <div class="weekly-metrics">
                   <div
@@ -300,9 +303,23 @@
                     <em>{{ metric.hint }}</em>
                   </div>
                 </div>
-                <div class="weekly-advice">{{ weeklyReport.advice }}</div>
+                <div class="weekly-scenes">
+                  <div class="weekly-block-title">本周名场面</div>
+                  <div
+                    class="weekly-scene"
+                    v-for="scene in weeklyReport.scenes"
+                    :key="scene.title"
+                  >
+                    <strong>{{ scene.title }}</strong>
+                    <span>{{ scene.text }}</span>
+                  </div>
+                </div>
+                <div class="weekly-advice">
+                  <strong>训练提示</strong>
+                  <span>{{ weeklyReport.tip }}</span>
+                </div>
               </div>
-              <div class="weekly-empty" v-else>登录后查看你的训练周报。</div>
+              <div class="weekly-empty" v-else>登录后查看你的训练战报。</div>
             </div>
           </div>
           <div class="section-secondary heatmap-home-section">
@@ -654,7 +671,7 @@ const currentPeriodData = computed<CoreStatisticPeriodItem>(() => {
 
 const weeklyReport = computed<WeeklyReport | null>(() => {
   if (!isLogin.value) return null;
-  return buildWeeklyReport(periodData.value, recentSubmitLogs.value);
+  return buildWeeklyReport(periodData.value, recentSubmitLogs.value, platformPeriodData.value);
 });
 
 const formatRate = (ac: number, submit: number): string => {
@@ -1162,17 +1179,33 @@ onMounted(() => {
 .weekly-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .weekly-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--text-default-color);
-  font-size: var(--text-xl);
   font-weight: 900;
 }
 
+.weekly-title span {
+  color: var(--text-light-color);
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.weekly-title strong {
+  color: var(--active-color);
+  font-size: var(--text-xl);
+}
+
 .weekly-summary,
-.weekly-advice,
+.weekly-scene span,
+.weekly-advice span,
 .weekly-empty {
   color: var(--text-light-color);
   font-size: var(--text-base);
@@ -1212,6 +1245,56 @@ onMounted(() => {
   color: var(--text-light-color);
   font-size: var(--text-xs);
   font-style: normal;
+}
+
+.weekly-scenes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weekly-block-title {
+  grid-column: 1 / -1;
+  color: var(--text-default-color);
+  font-size: var(--text-sm);
+  font-weight: 900;
+}
+
+.weekly-scene {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border-left: 3px solid color-mix(in srgb, var(--neon-cyan) 56%, var(--divider-color));
+  border-radius: 10px;
+  background-color: var(--section-background-color);
+}
+
+.weekly-scene strong,
+.weekly-advice strong {
+  color: var(--text-default-color);
+  font-size: var(--text-sm);
+  font-weight: 900;
+}
+
+.weekly-scene span {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.weekly-advice {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--neon-cyan) 26%, var(--divider-color));
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--neon-cyan) 9%, var(--background-color-content));
+}
+
+.weekly-advice span {
+  font-size: var(--text-sm);
 }
 
 .analyseItem {
@@ -1311,6 +1394,10 @@ onMounted(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .weekly-scenes {
+    grid-template-columns: 1fr;
+  }
+
   .ranking-card {
     height: 250px;
   }
@@ -1338,7 +1425,7 @@ onMounted(() => {
   }
 
   .weekly-metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

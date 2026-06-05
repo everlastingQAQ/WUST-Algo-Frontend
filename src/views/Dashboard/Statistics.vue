@@ -17,7 +17,7 @@
         <div class="stat-card">
           <div class="card-header">
             <div class="card-title">
-              <div class="title-main">组数量</div>
+              <div class="title-main">团队数量</div>
             </div>
           </div>
           <div class="card-data">
@@ -315,7 +315,13 @@
                     </div>
                   </div>
                   <div v-else class="rank-team">
-                    <span class="team-avatar">队</span>
+                    <img
+                      v-if="item.avatar"
+                      class="team-avatar-img"
+                      :src="item.avatar"
+                      alt=""
+                    />
+                    <span v-else class="team-avatar">队</span>
                     <div class="rank-user-info">
                       <span class="rank-name">{{ item.name }}</span>
                       <span class="rank-username">{{ item.members }} 名成员</span>
@@ -816,6 +822,21 @@ const getAllGroups = async (): Promise<UserGroupItem[]> => {
   return groups;
 };
 
+const getTeamAvatarMap = async (
+  groups: UserGroupItem[],
+): Promise<Map<number, string>> => {
+  const teamGroups = groups.filter((group) => Number(group.id) > 0);
+  const details = await chunkedMap(teamGroups, 4, async (group) => {
+    const groupId = Number(group.id);
+    const response = await API.user.team.detail(groupId);
+    return {
+      groupId,
+      avatar: response.success ? response.data.avatar : (group.avatar || ""),
+    };
+  });
+  return new Map(details.map((item) => [item.groupId, item.avatar]));
+};
+
 const rankRows = (rows: RankingRow[]): RankingRow[] => {
   return rows
     .sort(
@@ -839,6 +860,7 @@ const isSystemAdminAccount = (user: ProfileListItem): boolean => {
 const getRankingData = async () => {
   loadingRanking.value = true;
   const [allUsers, groups] = await Promise.all([getAllUsers(), getAllGroups()]);
+  const teamAvatars = await getTeamAvatarMap(groups);
   const users = allUsers.filter((user) => !isSystemAdminAccount(user));
   const rows = await chunkedMap(users, 6, async (user): Promise<RankingRow> => {
     const response = await API.core.statistic.period(user.userId);
@@ -870,7 +892,7 @@ const getRankingData = async () => {
       teamRows.set(groupId, {
         rank: 0,
         id: groupId,
-        avatar: "",
+        avatar: teamAvatars.get(groupId) || group.avatar || "",
         name: group.name || `团队 ${groupId}`,
         subText: group.describe || "",
         acTotal: 0,
@@ -887,7 +909,7 @@ const getRankingData = async () => {
     const current = teamRows.get(groupId) || {
       rank: 0,
       id: groupId,
-      avatar: "",
+      avatar: teamAvatars.get(groupId) || "",
       name: `团队 ${groupId}`,
       subText: "",
       acTotal: 0,
@@ -1211,7 +1233,8 @@ onBeforeUnmount(() => {
     gap: 12px;
   }
 
-  .rank-user img {
+  .rank-user img,
+  .team-avatar-img {
     width: 42px;
     height: 42px;
     border: 1px solid var(--divider-color);
@@ -1547,6 +1570,7 @@ onBeforeUnmount(() => {
     }
 
     .rank-user img,
+    .team-avatar-img,
     .team-avatar {
       width: 38px;
       height: 38px;

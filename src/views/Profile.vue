@@ -80,6 +80,8 @@
                                 @click="startCreateTeam">新建团队</button>
                             <button v-else-if="canManageTeam && teamPanelMode === 'idle'" class="team-edit"
                                 @click="startEditTeam">编辑团队</button>
+                            <button v-else-if="canLeaveTeam && teamPanelMode === 'idle'" class="team-edit danger"
+                                @click="leaveTeam">退出团队</button>
                             <button v-else-if="teamPanelMode !== 'idle'" class="team-edit" @click="closeTeamPanel">收起</button>
                         </div>
                         <div v-if="teamPanelMode === 'create'" class="team-form">
@@ -121,6 +123,13 @@
                                     :key="candidate.userId" @click="sendInvite(Number(candidate.userId))">
                                     邀请 {{ candidate.name }} #{{ candidate.userId }}
                                 </button>
+                            </div>
+                            <div class="team-danger-zone">
+                                <div>
+                                    <div class="team-panel-title">危险操作</div>
+                                    <div class="team-danger-tip">解散后所有成员将变为无团队，待处理邀请会失效。</div>
+                                </div>
+                                <button class="team-action danger" @click="disbandTeam">解散团队</button>
                             </div>
                         </div>
                         <div v-if="teamOwner" class="team-owner" @click="router.push(`/profile?id=${teamOwner.userId}`)">
@@ -335,19 +344,20 @@
                             </div>
                             <div class="header-tabs achievement-header-actions">
                                 <span class="tab active">{{ unlockedAchievements.length }}/{{ achievements.length }}</span>
-                                <button class="achievement-view-all" @click="showAchievementDrawer = true">查看全部 &gt;</button>
+                                <button class="achievement-action-button achievement-view-all" @click="showAchievementDrawer = true">查看全部 &gt;</button>
                             </div>
                         </div>
                         <div class="content">
                             <div class="achievement-grid">
                                 <div class="achievement-card" v-for="badge in visibleAchievements" :key="badge.key"
-                                    :class="[{ locked: !badge.unlocked }, `tone-${badge.tone}`]">
+                                    :class="[{ locked: !badge.unlocked, 'hidden-achievement': badge.hidden }, `tone-${badge.tone}`]">
                                     <div class="achievement-icon">{{ achievementIcon(badge) }}</div>
                                     <div class="achievement-info">
                                         <div class="achievement-name">{{ achievementLabel(badge) }}</div>
                                         <div class="achievement-desc">{{ achievementDescription(badge) }}</div>
+                                        <div v-if="achievementGlobalRateLabel(badge)" class="achievement-global-rate">{{ achievementGlobalRateLabel(badge) }}</div>
                                         <div class="achievement-progress">
-                                            <div :style="{ width: badge.progress + '%' }"></div>
+                                            <div :style="{ width: achievementDisplayProgress(badge) + '%' }"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -455,6 +465,7 @@
                     <button
                         v-for="filter in achievementFilters"
                         :key="filter.key"
+                        class="achievement-action-button"
                         :class="{ active: achievementFilter === filter.key }"
                         @click="achievementFilter = filter.key"
                     >
@@ -466,21 +477,21 @@
                         class="achievement-detail-card"
                         v-for="badge in filteredAchievements"
                         :key="`drawer-${badge.key}`"
-                        :class="[{ locked: !badge.unlocked }, `tone-${badge.tone}`]"
+                        :class="[{ locked: !badge.unlocked, 'hidden-achievement': badge.hidden }, `tone-${badge.tone}`]"
                     >
                         <div class="achievement-icon achievement-detail-icon">{{ achievementIcon(badge) }}</div>
                         <div class="achievement-detail-info">
                             <div class="achievement-detail-top">
                                 <span>{{ achievementLabel(badge) }}</span>
-                                <em>{{ achievementRarity(badge) }}</em>
+                                <em>{{ achievementMetaLabel(badge) }}</em>
                             </div>
                             <p>{{ achievementDescription(badge) }}</p>
                             <div class="achievement-condition" v-if="achievementCondition(badge)">
                                 条件：{{ achievementCondition(badge) }}
                             </div>
                             <div class="achievement-detail-progress">
-                                <div><span :style="{ width: badge.progress + '%' }"></span></div>
-                                <b>{{ badge.unlocked ? '已解锁' : badge.hidden ? '进度隐藏' : `${badge.progress}%` }}</b>
+                                <div><span :style="{ width: achievementDisplayProgress(badge) + '%' }"></span></div>
+                                <b>{{ achievementProgressText(badge) }}</b>
                             </div>
                         </div>
                     </div>
@@ -493,14 +504,14 @@
 
 <script setup lang="ts">
 import BaseLayout from '@/components/BaseLayout.vue'
-import { computed, ref, onBeforeUnmount, onMounted } from 'vue';
+import { computed, ref, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import JWT from '../utils/jwt';
 import Confirm from '@/components/confirm.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import { useUserStore } from '@/stores/user';
 import API from '@/utils/api';
-import type { CoreContestListData, CoreStatisticPeriodData, CoreStatisticPlatformPeriodItem, CoreSubmitLogGetByIdData, SpiderJobInfo, SpiderSyncStatusInfo, UserProfileGetByNameList } from '@/utils/api';
+import type { CoreContestListData, CoreStatisticPeriodData, CoreStatisticPlatformPeriodItem, CoreSubmitLogGetByIdData, List as ProfileListItem, SpiderJobInfo, SpiderSyncStatusInfo, UserProfileGetByNameList } from '@/utils/api';
 import Toast from '@/utils/toast';
 import type { User } from '@/utils/type';
 import Link from '@/utils/link';
@@ -617,6 +628,7 @@ interface TeamMember {
     username: string;
     acTotal: number;
     submitTotal: number;
+    waTotal: number;
     weekAc: number;
     weekSubmit: number;
     monthAc: number;
@@ -656,6 +668,10 @@ const canManageTeam = computed(() => {
     if (!isSelfProfile.value || teamInfo.value.id === 0) return false;
     return Number(teamInfo.value.ownerId) === currentUserId.value;
 })
+const canLeaveTeam = computed(() => {
+    if (!isSelfProfile.value || teamInfo.value.id === 0) return false;
+    return Number(teamInfo.value.ownerId) !== currentUserId.value;
+})
 const teamOwner = computed(() => teamInfo.value.members.find(member => Number(member.userId) === Number(teamInfo.value.ownerId)))
 const platformPeriodRows = computed(() => {
     return platformPeriodStats.value.filter((item) => Number(item.ac?.total || 0) > 0 || Number(item.submit?.total || 0) > 0);
@@ -669,18 +685,180 @@ const platformStats = (platform: string) => {
     };
 }
 
-const achievements = computed<AchievementBadge[]>(() => {
-    return buildAchievementBadges(profilePeriodData.value, recentSubmitLogs.value, platformPeriodStats.value);
+const permanentAchievementKeys = ref<string[]>([])
+const permanentAchievementStorageKey = computed(() => `wust-achievements:${Number(user.value.userId || 0)}`)
+const passwordChangeCount = ref(0)
+const achievementNightAcPercentile = ref(0)
+const achievementSiteContext = ref<Record<string, number | boolean>>({})
+const passwordChangeStorageKey = computed(() => `wust-password-change-count:${Number(user.value.userId || 0)}`)
+
+const loadPermanentAchievements = () => {
+    const key = permanentAchievementStorageKey.value;
+    if (key.endsWith(':0')) {
+        permanentAchievementKeys.value = [];
+        return;
+    }
+    try {
+        permanentAchievementKeys.value = JSON.parse(localStorage.getItem(key) || '[]');
+    } catch {
+        permanentAchievementKeys.value = [];
+    }
+}
+
+const savePermanentAchievements = (keys: string[]) => {
+    const key = permanentAchievementStorageKey.value;
+    if (key.endsWith(':0')) return;
+    const uniqueKeys = [...new Set(keys)];
+    permanentAchievementKeys.value = uniqueKeys;
+    localStorage.setItem(key, JSON.stringify(uniqueKeys));
+}
+
+const loadPasswordChangeCount = () => {
+    const key = passwordChangeStorageKey.value;
+    if (key.endsWith(':0')) {
+        passwordChangeCount.value = 0;
+        return;
+    }
+    passwordChangeCount.value = Number(localStorage.getItem(key) || 0);
+}
+
+const isWrongAnswerStatus = (status: string) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    return normalized === 'wa' || normalized.includes('wrong answer') || normalized.includes('答案错误');
+}
+
+const isAcceptedStatus = (status: string) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    return normalized === 'ac' || normalized.includes('accepted') || normalized.includes('答案正确') || normalized.includes('通过');
+}
+
+const countWrongAnswers = (logs: CoreSubmitLogGetByIdData[]) => logs.filter((log) => isWrongAnswerStatus(log.status)).length;
+
+const countNightAccepted = (logs: CoreSubmitLogGetByIdData[]) => logs.filter((log) => {
+    if (!isAcceptedStatus(log.status)) return false;
+    const hour = new Date(Number(log.time || 0) * 1000).getHours();
+    return hour >= 0 && hour < 5;
+}).length;
+
+const localDateKey = (time: number) => {
+    const date = new Date(time * 1000);
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+const localMinuteKey = (time: number) => {
+    const date = new Date(time * 1000);
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    const hour = `${date.getHours()}`.padStart(2, '0');
+    const minute = `${date.getMinutes()}`.padStart(2, '0');
+    return `${month}-${day} ${hour}:${minute}`;
+}
+
+const percentileOf = (values: number[], value: number) => {
+    if (values.length === 0) return 0;
+    return (values.filter((item) => item < value).length / values.length) * 100;
+}
+
+const medianOf = (values: number[]) => {
+    const sorted = values.filter((item) => Number.isFinite(item)).sort((a, b) => a - b);
+    if (sorted.length === 0) return 0;
+    const middle = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 1) return sorted[middle] || 0;
+    return ((sorted[middle - 1] || 0) + (sorted[middle] || 0)) / 2;
+}
+
+const maxDailyWrongAnswers = (logs: CoreSubmitLogGetByIdData[]) => {
+    const counts = new Map<string, number>();
+    logs.forEach((log) => {
+        if (!isWrongAnswerStatus(log.status)) return;
+        const key = localDateKey(Number(log.time || 0));
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return Math.max(0, ...counts.values());
+}
+
+const todaySubmitCount = (logs: CoreSubmitLogGetByIdData[]) => {
+    const today = localDateKey(Math.floor(Date.now() / 1000));
+    return logs.filter((log) => localDateKey(Number(log.time || 0)) === today).length;
+}
+
+const todayAcceptRate = (logs: CoreSubmitLogGetByIdData[]) => {
+    const today = localDateKey(Math.floor(Date.now() / 1000));
+    const todayLogs = logs.filter((log) => localDateKey(Number(log.time || 0)) === today);
+    if (todayLogs.length === 0) return 0;
+    return (todayLogs.filter((log) => isAcceptedStatus(log.status)).length / todayLogs.length) * 100;
+}
+
+const hourlyDistribution = (logs: CoreSubmitLogGetByIdData[]) => {
+    const buckets = Array.from({ length: 24 }, () => 0);
+    logs.forEach((log) => {
+        const hour = new Date(Number(log.time || 0) * 1000).getHours();
+        buckets[hour] = (buckets[hour] || 0) + 1;
+    });
+    const total = buckets.reduce((sum, item) => sum + item, 0);
+    return total > 0 ? buckets.map((item) => item / total) : buckets;
+}
+
+const distributionDistance = (left: number[], right: number[]) => {
+    return left.reduce((sum, item, index) => sum + Math.abs(item - (right[index] || 0)), 0);
+}
+
+const rawAchievements = computed<AchievementBadge[]>(() => {
+    return buildAchievementBadges(profilePeriodData.value, recentSubmitLogs.value, platformPeriodStats.value, {
+        currentUserId: Number(user.value.userId),
+        members: teamInfo.value.members,
+        nightAcPercentile: achievementNightAcPercentile.value,
+        passwordChangeCount: passwordChangeCount.value,
+        totalSubmitPercentile: Number(achievementSiteContext.value.totalSubmitPercentile || 0),
+        acceptRatePercentile: Number(achievementSiteContext.value.acceptRatePercentile || 0),
+        medianSubmit: Number(achievementSiteContext.value.medianSubmit || 0),
+        medianAcceptRate: Number(achievementSiteContext.value.medianAcceptRate || 0),
+        uniqueAcMinute: Boolean(achievementSiteContext.value.uniqueAcMinute),
+        siteDailyWaLeader: Boolean(achievementSiteContext.value.siteDailyWaLeader),
+        todaySubmitLeader: Boolean(achievementSiteContext.value.todaySubmitLeader),
+        todaySubmit: Number(achievementSiteContext.value.todaySubmit || 0),
+        todayAcRatePercentile: Number(achievementSiteContext.value.todayAcRatePercentile || 0),
+        offPeakPercentile: Number(achievementSiteContext.value.offPeakPercentile || 0),
+    });
 })
 
+const achievements = computed<AchievementBadge[]>(() => {
+    const permanentSet = new Set(permanentAchievementKeys.value);
+    return rawAchievements.value.map((item) => (
+        permanentSet.has(item.key)
+            ? { ...item, unlocked: true, progress: 100 }
+            : item
+    ));
+})
+
+watch(rawAchievements, (items) => {
+    const triggeredPermanent = items.filter((item) => item.unlocked).map((item) => item.key);
+    if (triggeredPermanent.length === 0) return;
+    const currentKeys = new Set(permanentAchievementKeys.value);
+    if (triggeredPermanent.some((key) => !currentKeys.has(key))) {
+        savePermanentAchievements([...currentKeys, ...triggeredPermanent]);
+    }
+}, { immediate: true })
+
 const unlockedAchievements = computed(() => achievements.value.filter((item) => item.unlocked))
+type AchievementGlobalRate = {
+    unlocked: number;
+    total: number;
+    rate: number;
+}
+const achievementGlobalRates = ref<Record<string, AchievementGlobalRate>>({})
+const loadingAchievementGlobalRates = ref(false)
+const achievementGlobalRateLoaded = ref(false)
 type AchievementFilter = 'all' | 'unlocked' | 'progress' | 'hidden'
 const showAchievementDrawer = ref(false)
 const achievementFilter = ref<AchievementFilter>('all')
 const achievementFilters: { key: AchievementFilter; label: string }[] = [
     { key: 'all', label: '全部' },
     { key: 'unlocked', label: '已解锁' },
-    { key: 'progress', label: '进行中' },
+    { key: 'progress', label: '未解锁' },
     { key: 'hidden', label: '隐藏' },
 ]
 const visibleAchievements = computed(() => {
@@ -720,20 +898,257 @@ const achievementIcon = (badge: AchievementBadge) => {
     return badge.hidden && !badge.unlocked ? '???' : badge.icon;
 }
 
+const achievementDisplayProgress = (badge: AchievementBadge) => {
+    if (badge.unlocked) return 100;
+    if (badge.hidden) return 0;
+    const progress = Math.round(Number(badge.progress || 0));
+    return Math.max(0, Math.min(99, progress));
+}
+
+const achievementProgressText = (badge: AchievementBadge) => {
+    if (badge.unlocked) return '已解锁';
+    if (badge.hidden) return '进度隐藏';
+    return `${achievementDisplayProgress(badge)}%`;
+}
+
 const filteredAchievements = computed(() => {
     if (achievementFilter.value === 'unlocked') return achievements.value.filter((item) => item.unlocked);
     if (achievementFilter.value === 'progress') return achievements.value.filter((item) => !item.unlocked && !item.hidden);
     if (achievementFilter.value === 'hidden') return achievements.value.filter((item) => item.hidden);
-    return achievements.value;
+    return [...achievements.value].sort((a, b) => (
+        Number(b.unlocked) - Number(a.unlocked) ||
+        Number(a.hidden) - Number(b.hidden)
+    ));
 })
 
 const achievementRarity = (badge: AchievementBadge) => {
+    if (badge.rarity === 'legendary') return '传说';
+    if (badge.rarity === 'epic') return '史诗';
+    if (badge.rarity === 'rare') return '稀有';
+    if (badge.rarity === 'pain') return '痛苦';
+    if (badge.rarity === 'fun') return '隐藏 / 趣味';
+    if (badge.rarity === 'server') return '站内';
+    if (badge.rarity === 'hidden') return badge.unlocked ? '隐藏' : '未知';
     if (badge.hidden) return badge.unlocked ? '隐藏' : '未知';
     if (badge.tone === 'gold') return '史诗';
     if (badge.tone === 'red') return '痛苦';
-    if (badge.progress >= 80 && !badge.unlocked) return '临门一脚';
-    return badge.unlocked ? '已收集' : '进行中';
+    if (achievementDisplayProgress(badge) >= 80 && !badge.unlocked) return '临门一脚';
+    return badge.unlocked ? '已收集' : '未解锁';
 }
+
+const achievementGlobalRateLabel = (badge: AchievementBadge) => {
+    const stat = achievementGlobalRates.value[badge.key];
+    if (stat) return `全站解锁 ${stat.rate.toFixed(stat.rate < 1 && stat.rate > 0 ? 1 : 0)}%`;
+    return '';
+}
+
+const achievementMetaLabel = (badge: AchievementBadge) => {
+    const globalRate = achievementGlobalRateLabel(badge);
+    return globalRate ? `${achievementRarity(badge)} · ${globalRate}` : achievementRarity(badge);
+}
+
+const getAllProfileUsers = async (): Promise<ProfileListItem[]> => {
+    const firstResponse = await API.user.profile.list(1);
+    Toast.stdResponse(firstResponse, false);
+    if (!firstResponse.success) return [];
+
+    const users = [...firstResponse.data.list];
+    const totalPage = Math.ceil(Number(firstResponse.data.total || 0) / 10);
+    if (totalPage <= 1) return users;
+
+    const pageResponses = await chunkedMap(
+        Array.from({ length: totalPage - 1 }, (_, index) => index + 2),
+        4,
+        (page) => API.user.profile.list(page),
+    );
+    pageResponses.forEach((response) => {
+        if (response.success) users.push(...response.data.list);
+    });
+    return users;
+}
+
+const getAchievementSubmitLogs = async (userId: number): Promise<CoreSubmitLogGetByIdData[]> => {
+    const logs: CoreSubmitLogGetByIdData[] = [];
+    let cursor = -1;
+    const pageSize = 300;
+    const maxLogs = 900;
+    const minTime = Math.floor(Date.now() / 1000) - 400 * 86400;
+
+    while (logs.length < maxLogs) {
+        const response = await API.core.submitLog.getById(userId, cursor, pageSize);
+        Toast.stdResponse(response, false);
+        if (!response.success) break;
+
+        const pageLogs = response.data.data || [];
+        logs.push(...pageLogs);
+        if (pageLogs.length === 0 || pageLogs.length < pageSize) break;
+
+        const lastLog = pageLogs[pageLogs.length - 1];
+        cursor = Number(lastLog?.time || 0);
+        if (!cursor || cursor < minTime) break;
+    }
+
+    return logs;
+}
+
+const loadAchievementGlobalRates = async () => {
+    if (achievementGlobalRateLoaded.value || loadingAchievementGlobalRates.value) return;
+
+    const cacheKey = 'wust-achievement-global-rates:v2';
+    try {
+        const cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
+        if (cached?.generatedAt && Date.now() - Number(cached.generatedAt) < 10 * 60 * 1000 && cached?.rates) {
+            achievementGlobalRates.value = cached.rates;
+            achievementNightAcPercentile.value = Number(cached.nightPercentiles?.[Number(user.value.userId)] || 0);
+            achievementSiteContext.value = cached.siteContexts?.[Number(user.value.userId)] || {};
+            achievementGlobalRateLoaded.value = true;
+            return;
+        }
+    } catch {
+        // Ignore broken cache and recalculate.
+    }
+
+    loadingAchievementGlobalRates.value = true;
+    try {
+        const users = (await getAllProfileUsers()).filter((item) => item.username !== 'admin');
+        if (users.length === 0) return;
+
+        const userStats = await chunkedMap(users, 3, async (profile) => {
+            const userId = Number(profile.userId);
+            const [periodResponse, platformResponse, logs] = await Promise.all([
+                API.core.statistic.period(userId),
+                API.core.statistic.platformPeriod(userId),
+                getAchievementSubmitLogs(userId),
+            ]);
+            return {
+                profile,
+                period: periodResponse.success ? periodResponse.data.data : null,
+                platformStats: platformResponse.success ? platformResponse.data.data : [],
+                logs,
+                nightAcCount: countNightAccepted(logs),
+                totalSubmit: Number(periodResponse.success ? periodResponse.data.data?.submit?.total || 0 : 0) || logs.length,
+                acceptRate: (() => {
+                    const submitTotal = Number(periodResponse.success ? periodResponse.data.data?.submit?.total || 0 : 0) || logs.length;
+                    const acceptedTotal = Number(periodResponse.success ? periodResponse.data.data?.ac?.total || 0 : 0) || logs.filter((log) => isAcceptedStatus(log.status)).length;
+                    return submitTotal > 0 ? (acceptedTotal / submitTotal) * 100 : 0;
+                })(),
+                maxDailyWa: maxDailyWrongAnswers(logs),
+                todaySubmit: todaySubmitCount(logs),
+                todayAcRate: todayAcceptRate(logs),
+                hourlyDistribution: hourlyDistribution(logs),
+            };
+        });
+
+        const totalSubmits = userStats.map((item) => item.totalSubmit);
+        const acceptRates = userStats.map((item) => item.acceptRate);
+        const nightAcCounts = userStats.map((item) => item.nightAcCount);
+        const maxDailyWas = userStats.map((item) => item.maxDailyWa);
+        const todaySubmits = userStats.map((item) => item.todaySubmit);
+        const todayLuckyRates = userStats.filter((item) => item.todaySubmit >= 10).map((item) => item.todayAcRate);
+        const medianSubmit = medianOf(totalSubmits);
+        const medianAcceptRate = medianOf(acceptRates);
+        const averageHourlyDistribution = Array.from({ length: 24 }, (_, index) => (
+            userStats.reduce((sum, item) => sum + (item.hourlyDistribution[index] || 0), 0) / Math.max(userStats.length, 1)
+        ));
+        const offPeakScores = userStats.map((item) => distributionDistance(item.hourlyDistribution, averageHourlyDistribution));
+        const acMinuteOwners = new Map<string, Set<number>>();
+        userStats.forEach((item) => {
+            item.logs.forEach((log) => {
+                if (!isAcceptedStatus(log.status)) return;
+                const minuteKey = localMinuteKey(Number(log.time || 0));
+                const owners = acMinuteOwners.get(minuteKey) || new Set<number>();
+                owners.add(Number(item.profile.userId));
+                acMinuteOwners.set(minuteKey, owners);
+            });
+        });
+        const nightPercentiles: Record<number, number> = {};
+        const siteContexts: Record<number, Record<string, number | boolean>> = {};
+        const maxDailyWaLeaderValue = Math.max(0, ...maxDailyWas);
+        const todaySubmitLeaderValue = Math.max(0, ...todaySubmits);
+        userStats.forEach((item) => {
+            const userId = Number(item.profile.userId);
+            const nightPercentile = percentileOf(nightAcCounts, item.nightAcCount);
+            const offPeakScore = distributionDistance(item.hourlyDistribution, averageHourlyDistribution);
+            nightPercentiles[userId] = nightPercentile;
+            const userAcMinuteKeys = new Set(
+                item.logs
+                    .filter((log) => isAcceptedStatus(log.status))
+                    .map((log) => localMinuteKey(Number(log.time || 0))),
+            );
+            const uniqueAcMinute = [...userAcMinuteKeys].some((minuteKey) => acMinuteOwners.get(minuteKey)?.size === 1);
+            siteContexts[userId] = {
+                totalSubmitPercentile: percentileOf(totalSubmits, item.totalSubmit),
+                acceptRatePercentile: percentileOf(acceptRates, item.acceptRate),
+                medianSubmit,
+                medianAcceptRate,
+                uniqueAcMinute,
+                siteDailyWaLeader: maxDailyWaLeaderValue >= 20 && item.maxDailyWa === maxDailyWaLeaderValue,
+                todaySubmitLeader: todaySubmitLeaderValue > 0 && item.todaySubmit === todaySubmitLeaderValue,
+                todaySubmit: item.todaySubmit,
+                todayAcRatePercentile: item.todaySubmit >= 10 ? percentileOf(todayLuckyRates, item.todayAcRate) : 0,
+                offPeakPercentile: percentileOf(offPeakScores, offPeakScore),
+            };
+        });
+        achievementNightAcPercentile.value = Number(nightPercentiles[Number(user.value.userId)] || 0);
+        achievementSiteContext.value = siteContexts[Number(user.value.userId)] || {};
+
+        const teamMembersByGroup = new Map<number, TeamDashboardMember[]>();
+        userStats.forEach((item) => {
+            const groupId = Number(item.profile.groupId || 0);
+            if (groupId <= 0) return;
+            const list = teamMembersByGroup.get(groupId) || [];
+            list.push({
+                userId: Number(item.profile.userId),
+                name: item.profile.name || item.profile.username,
+                username: item.profile.username,
+                avatar: item.profile.avatar || '',
+                acTotal: Number(item.period?.ac?.total || 0),
+                submitTotal: Number(item.period?.submit?.total || 0),
+                waTotal: countWrongAnswers(item.logs),
+                weekAc: Number(item.period?.ac?.thisWeek || 0),
+                weekSubmit: Number(item.period?.submit?.thisWeek || 0),
+                monthAc: Number(item.period?.ac?.thisMonth || 0),
+                monthSubmit: Number(item.period?.submit?.thisMonth || 0),
+            });
+            teamMembersByGroup.set(groupId, list);
+        });
+
+        const counts: Record<string, number> = {};
+        userStats.forEach((item) => {
+            const groupId = Number(item.profile.groupId || 0);
+            const badges = buildAchievementBadges(item.period, item.logs, item.platformStats, {
+                currentUserId: Number(item.profile.userId),
+                members: groupId > 0 ? (teamMembersByGroup.get(groupId) || []) : [],
+                nightAcPercentile: nightPercentiles[Number(item.profile.userId)] || 0,
+                passwordChangeCount: Number(item.profile.userId) === Number(user.value.userId) ? passwordChangeCount.value : 0,
+                ...siteContexts[Number(item.profile.userId)],
+            });
+            badges.forEach((badge) => {
+                if (badge.unlocked) counts[badge.key] = (counts[badge.key] || 0) + 1;
+            });
+        });
+
+        const rates: Record<string, AchievementGlobalRate> = {};
+        const total = userStats.length;
+        achievements.value.forEach((badge) => {
+            const unlocked = counts[badge.key] || 0;
+            rates[badge.key] = {
+                unlocked,
+                total,
+                rate: total > 0 ? (unlocked / total) * 100 : 0,
+            };
+        });
+        achievementGlobalRates.value = rates;
+        achievementGlobalRateLoaded.value = true;
+        sessionStorage.setItem(cacheKey, JSON.stringify({ generatedAt: Date.now(), rates, nightPercentiles, siteContexts }));
+    } finally {
+        loadingAchievementGlobalRates.value = false;
+    }
+}
+
+watch(showAchievementDrawer, (visible) => {
+    if (visible) loadAchievementGlobalRates();
+})
 
 const teamDashboard = computed<TeamDashboard>(() => {
     return buildTeamDashboard(teamInfo.value.members as TeamDashboardMember[]);
@@ -835,7 +1250,9 @@ const getTeamInfo = async () => {
     }
     const members = await chunkedMap(teamResponse.data.users, 6, async (member): Promise<TeamMember> => {
         const response = await API.core.statistic.period(member.userId);
+        const submitLogResponse = await API.core.submitLog.getById(member.userId, 0, 900);
         const stats = response.success ? response.data.data : null;
+        const logs = submitLogResponse.success ? submitLogResponse.data.data : [];
         return {
             userId: Number(member.userId),
             avatar: member.avatar,
@@ -843,6 +1260,7 @@ const getTeamInfo = async () => {
             username: member.username,
             acTotal: stats ? Number(stats.ac.total) : 0,
             submitTotal: stats ? Number(stats.submit.total) : 0,
+            waTotal: countWrongAnswers(logs),
             weekAc: stats ? Number(stats.ac.thisWeek) : 0,
             weekSubmit: stats ? Number(stats.submit.thisWeek) : 0,
             monthAc: stats ? Number(stats.ac.thisMonth) : 0,
@@ -972,14 +1390,47 @@ const removeMember = async (userId: number) => {
     }
 }
 
+const leaveTeam = async () => {
+    if (!canLeaveTeam.value || teamInfo.value.id === 0) {
+        return;
+    }
+    const confirmed = window.confirm(`确定要退出团队「${teamInfo.value.name}」吗？退出后需要重新接受邀请才能加入团队。`);
+    if (!confirmed) {
+        return;
+    }
+    const response = await API.user.team.leave();
+    Toast.stdResponse(response);
+    if (response.success) {
+        user.value.groupId = '0';
+        teamPanelMode.value = 'idle';
+        await getTeamInfo();
+    }
+}
+
+const disbandTeam = async () => {
+    if (!canManageTeam.value || teamInfo.value.id === 0) {
+        return;
+    }
+    const confirmed = window.confirm(`确定要解散团队「${teamInfo.value.name}」吗？所有成员都会变为无团队，待处理邀请会失效。`);
+    if (!confirmed) {
+        return;
+    }
+    const response = await API.user.team.disband();
+    Toast.stdResponse(response);
+    if (response.success) {
+        user.value.groupId = '0';
+        teamPanelMode.value = 'idle';
+        await getTeamInfo();
+    }
+}
+
 const getSubmitInfo = async () => {
     loadingActivities.value = true;
     try {
         const recentLogs: CoreSubmitLogGetByIdData[] = [];
         let cursor = -1;
         const pageSize = 300;
-        const maxLogs = 2000;
-        const minTime = Math.floor(Date.now() / 1000) - 60 * 86400;
+        const maxLogs = 5000;
 
         while (recentLogs.length < maxLogs) {
             const response = await API.core.submitLog.getById(user.value.userId, cursor, pageSize);
@@ -1001,7 +1452,7 @@ const getSubmitInfo = async () => {
                 break;
             }
             cursor = Number(lastLog.time || 0);
-            if (!cursor || cursor < minTime) {
+            if (!cursor) {
                 break;
             }
         }
@@ -1047,6 +1498,8 @@ const getUserInfo = async () => {
 
     if (response.success) {
         user.value = response.data;
+        loadPermanentAchievements();
+        loadPasswordChangeCount();
         loadingProfile.value = false;
     }
 
@@ -1808,7 +2261,6 @@ onBeforeUnmount(() => {
             >.team-card {
                 display: flex;
                 flex-direction: column;
-                gap: 14px;
                 width: 100%;
                 box-sizing: border-box;
                 padding: 18px;
@@ -1816,6 +2268,10 @@ onBeforeUnmount(() => {
                 border-radius: 12px;
                 background: var(--background-color-content);
                 box-shadow: 0 0 20px rgba(0, 0, 0, 0.06);
+            }
+
+            >.team-card {
+                gap: 14px;
             }
         }
 
@@ -1930,6 +2386,12 @@ onBeforeUnmount(() => {
     background-color: var(--neon-cyan);
 }
 
+.team-edit.danger:hover {
+    border-color: #f44336;
+    color: #fff;
+    background-color: #f44336;
+}
+
 .team-panel-title {
     color: var(--text-default-color);
     font-size: var(--text-sm);
@@ -2024,6 +2486,23 @@ onBeforeUnmount(() => {
     border-color: #f44336;
     color: #fff;
     background-color: #f44336;
+}
+
+.team-danger-zone {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    gap: 10px;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--divider-color);
+}
+
+.team-danger-tip {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+    line-height: 1.6;
 }
 
 .team-candidates {
@@ -2510,69 +2989,6 @@ onBeforeUnmount(() => {
     font-size: var(--text-sm);
 }
 
-.weekly-card {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.weekly-title {
-    display: block;
-}
-
-.weekly-title span:first-child {
-    color: var(--text-default-color);
-    font-size: var(--text-xl);
-    font-weight: 900;
-}
-
-.weekly-summary,
-.weekly-advice {
-    color: var(--text-light-color);
-    font-size: var(--text-sm);
-    line-height: 1.8;
-}
-
-.weekly-advice {
-    padding-top: 10px;
-    border-top: 1px solid var(--divider-color);
-}
-
-.weekly-metrics {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.weekly-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px;
-    border: 1px solid var(--divider-color);
-    border-radius: 12px;
-    background-color: var(--section-background-color);
-}
-
-.weekly-metric strong {
-    color: var(--active-color);
-    font-size: var(--text-xl);
-    font-weight: 900;
-    font-variant-numeric: tabular-nums;
-}
-
-.weekly-metric span {
-    color: var(--text-default-color);
-    font-size: var(--text-sm);
-    font-weight: 800;
-}
-
-.weekly-metric em {
-    color: var(--text-light-color);
-    font-size: var(--text-xs);
-    font-style: normal;
-}
-
 .achievement-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2584,8 +3000,6 @@ onBeforeUnmount(() => {
     gap: 8px;
 }
 
-.achievement-view-all,
-.achievement-drawer-tabs button,
 .achievement-drawer-close {
     border: 1px solid var(--divider-color);
     border-radius: 12px;
@@ -2594,27 +3008,51 @@ onBeforeUnmount(() => {
     font-family: inherit;
     font-weight: 800;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
 }
 
-.achievement-view-all {
-    padding: 7px 10px;
-    font-size: var(--text-xs);
-}
-
-.achievement-view-all:hover,
 .achievement-drawer-close:hover {
     color: var(--active-color);
     border-color: var(--active-color);
     background-color: var(--background-color-2);
 }
 
-.achievement-drawer-tabs button:hover,
-.achievement-drawer-tabs button.active {
-    color: var(--active-color);
-    border-color: var(--active-color);
-    background-color: color-mix(in srgb, var(--active-color) 14%, var(--background-color-content));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--active-color) 24%, transparent);
+.achievement-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 6px 14px;
+    border: 1px solid var(--divider-color);
+    border-radius: 6px;
+    color: var(--text-secondary-color);
+    background-color: var(--background-color-2);
+    font-family: inherit;
+    font-size: var(--text-base);
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.achievement-action-button:hover,
+.achievement-action-button.active {
+    color: white;
+    border-color: var(--neon-cyan);
+    background-color: var(--neon-cyan);
+}
+
+.achievement-view-all {
+    font-size: var(--text-sm);
 }
 
 .achievement-card {
@@ -2627,12 +3065,13 @@ onBeforeUnmount(() => {
     border: 1px solid var(--divider-color);
     border-radius: 12px;
     background-color: var(--section-background-color);
-    transition: all 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
 }
 
 .achievement-card:hover {
     border-color: var(--neon-cyan);
-    transform: translateY(-2px);
 }
 
 .achievement-card.locked {
@@ -2654,12 +3093,22 @@ onBeforeUnmount(() => {
     font-weight: 900;
 }
 
+.achievement-card.tone-cyan .achievement-icon,
+.achievement-card.tone-blue .achievement-icon {
+    color: var(--text-default-color);
+    border: 1px solid color-mix(in srgb, var(--neon-cyan) 48%, var(--divider-color));
+    background-color: var(--background-color-2);
+    background-color: color-mix(in srgb, var(--neon-cyan) 30%, var(--background-color-content));
+}
+
 .achievement-card.tone-gold .achievement-icon {
+    color: #111827;
     background-color: #f59e0b;
 }
 
 .achievement-card.tone-blue .achievement-icon {
-    background-color: var(--active-color);
+    background-color: var(--background-color-2);
+    background-color: color-mix(in srgb, var(--neon-cyan) 38%, var(--background-color-content));
 }
 
 .achievement-card.tone-red .achievement-icon {
@@ -2670,7 +3119,15 @@ onBeforeUnmount(() => {
 .achievement-card.locked .achievement-icon {
     color: var(--text-default-color);
     border: 1px solid var(--divider-color);
+    background-color: var(--background-color-2);
     background-color: color-mix(in srgb, var(--background-color-2) 78%, var(--background-color-content));
+}
+
+.achievement-card.hidden-achievement .achievement-icon {
+    color: var(--text-default-color);
+    border: 1px solid color-mix(in srgb, var(--neon-cyan) 38%, var(--divider-color));
+    background-color: var(--background-color-2);
+    background-color: color-mix(in srgb, var(--neon-cyan) 16%, var(--section-background-color));
 }
 
 .achievement-info {
@@ -2696,6 +3153,13 @@ onBeforeUnmount(() => {
     min-height: 0;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+}
+
+.achievement-global-rate {
+    margin-top: 5px;
+    color: var(--active-color);
+    font-size: var(--text-xs);
+    font-weight: 900;
 }
 
 .achievement-progress {
@@ -2724,18 +3188,20 @@ onBeforeUnmount(() => {
     z-index: 2100;
     display: flex;
     justify-content: flex-end;
-    background-color: rgba(0, 0, 0, 0.36);
-    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.42);
 }
 
 .achievement-drawer {
+    display: flex;
+    flex-direction: column;
     width: min(520px, 100vw);
     height: 100%;
     padding: 22px;
-    overflow-y: auto;
+    overflow: hidden;
     border-left: 1px solid var(--divider-color);
     background-color: var(--background-color-content);
-    box-shadow: -20px 0 50px rgba(0, 0, 0, 0.22);
+    box-shadow: -12px 0 28px rgba(0, 0, 0, 0.18);
+    contain: layout paint;
 }
 
 .achievement-drawer-header {
@@ -2778,19 +3244,32 @@ onBeforeUnmount(() => {
 .achievement-drawer-tabs {
     display: flex;
     flex-wrap: wrap;
+    justify-content: flex-start;
     gap: 8px;
     margin: 18px 0;
 }
 
-.achievement-drawer-tabs button {
-    padding: 8px 12px;
-    font-size: var(--text-sm);
+.achievement-drawer-tabs .achievement-action-button {
+    min-width: 78px;
 }
 
 .achievement-drawer-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 22px;
+    overscroll-behavior: contain;
+}
+
+.achievement-drawer-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.achievement-drawer-list::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background-color: var(--divider-color);
 }
 
 .achievement-detail-card {
@@ -2810,11 +3289,21 @@ onBeforeUnmount(() => {
 }
 
 .achievement-detail-card.tone-gold .achievement-detail-icon {
+    color: #111827;
     background-color: #f59e0b;
 }
 
+.achievement-detail-card.tone-cyan .achievement-detail-icon,
 .achievement-detail-card.tone-blue .achievement-detail-icon {
-    background-color: var(--active-color);
+    color: var(--text-default-color);
+    border: 1px solid color-mix(in srgb, var(--neon-cyan) 48%, var(--divider-color));
+    background-color: var(--background-color-2);
+    background-color: color-mix(in srgb, var(--neon-cyan) 30%, var(--background-color-content));
+}
+
+.achievement-detail-card.tone-blue .achievement-detail-icon {
+    background-color: var(--background-color-2);
+    background-color: color-mix(in srgb, var(--neon-cyan) 38%, var(--background-color-content));
 }
 
 .achievement-detail-card.tone-red .achievement-detail-icon {
@@ -2825,7 +3314,15 @@ onBeforeUnmount(() => {
 .achievement-detail-card.locked .achievement-detail-icon {
     color: var(--text-default-color);
     border: 1px solid var(--divider-color);
+    background-color: var(--background-color-2);
     background-color: color-mix(in srgb, var(--background-color-2) 78%, var(--background-color-content));
+}
+
+.achievement-detail-card.hidden-achievement .achievement-detail-icon {
+    color: var(--text-default-color);
+    border: 1px solid color-mix(in srgb, var(--neon-cyan) 38%, var(--divider-color));
+    background-color: var(--background-color-2);
+    background-color: color-mix(in srgb, var(--neon-cyan) 16%, var(--section-background-color));
 }
 
 .achievement-detail-top {
@@ -3251,7 +3748,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width:1000px) {
-    .weekly-metrics,
     .achievement-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -3394,7 +3890,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width:600px) {
-    .weekly-metrics,
     .achievement-grid,
     .team-dashboard-grid {
         grid-template-columns: 1fr;
@@ -3408,11 +3903,6 @@ onBeforeUnmount(() => {
         width: 40px;
         height: 40px;
         border-radius: 12px;
-    }
-
-    .weekly-title {
-        align-items: flex-start;
-        flex-direction: column;
     }
 
     .profile-chart-container {
@@ -3489,6 +3979,10 @@ onBeforeUnmount(() => {
     .achievement-detail-card {
         grid-template-columns: 40px minmax(0, 1fr);
         padding: 10px;
+    }
+
+    .achievement-drawer-list {
+        padding-bottom: 18px;
     }
 }
 </style>

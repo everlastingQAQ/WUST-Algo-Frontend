@@ -108,7 +108,7 @@
           <!-- 目前仅支持以下平台绑定：AtCoder, LuoGu, NowCoder, CodeForces, LeetCode。<br> -->
           如何填写用户名？<br />
           AtCoder:填写用户名，例如您的主页是https://atcoder.jp/users/AoralsFout，那么你就填AoralsFout<br />
-          LuoGu: 填写您的用户名(非用户编号)<br />
+          LuoGu: 填写您的用户编号<br />
           牛客:
           填写您的用户id，例如您的主页是https://ac.nowcoder.com/acm/contest/profile/978880410，那么你就填978880410<br />
           CodeForces:
@@ -139,12 +139,12 @@
         </div>
         <div class="item">
           <label>{{
-            ojData.platform === "NowCoder" ? "牛客学号" : "用户名"
+            ojData.platform === "NowCoder" ? "牛客学号" : ojData.platform === "LuoGu" ? "用户编号" : "用户名"
           }}</label>
           <input
             type="text"
             :placeholder="
-              ojData.platform === 'NowCoder' ? '请输入牛客学号' : '请输入用户名'
+              ojData.platform === 'NowCoder' ? '请输入牛客学号' : ojData.platform === 'LuoGu' ? '请输入用户编号' : '请输入用户名'
             "
             v-model="ojData.username"
           />
