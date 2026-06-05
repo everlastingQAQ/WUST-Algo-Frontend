@@ -1585,6 +1585,8 @@ onBeforeUnmount(() => {
         >.right {
             display: flex;
             flex-direction: column;
+            min-width: 0;
+            box-sizing: border-box;
         }
 
         >.left {
@@ -1593,6 +1595,7 @@ onBeforeUnmount(() => {
             align-items: center;
             justify-content: center;
             width: 300px;
+            box-sizing: border-box;
             gap: 20px;
 
 
@@ -1644,6 +1647,7 @@ onBeforeUnmount(() => {
                 padding: 20px;
                 gap: 20px;
                 width: 100%;
+                box-sizing: border-box;
 
                 >.name {
                     width: 100%;
@@ -1764,6 +1768,7 @@ onBeforeUnmount(() => {
                 flex-direction: column;
                 gap: 14px;
                 width: 100%;
+                box-sizing: border-box;
                 padding: 18px;
                 border: 1px solid var(--divider-color);
                 border-radius: 12px;
@@ -1775,6 +1780,7 @@ onBeforeUnmount(() => {
         >.right {
             /* margin: 0 auto;
             width: 100%; */
+            flex: 0 1 980px;
             max-width: 1200px;
             gap: 20px;
         }
@@ -2538,7 +2544,7 @@ onBeforeUnmount(() => {
 
 .achievement-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -2979,6 +2985,7 @@ onBeforeUnmount(() => {
     }
 
     .container>.top>.right {
+        flex: none;
         width: 100%;
     }
 }
