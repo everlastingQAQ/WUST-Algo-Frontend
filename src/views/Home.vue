@@ -305,7 +305,7 @@
               <div class="weekly-empty" v-else>登录后查看你的训练周报。</div>
             </div>
           </div>
-          <div class="section-secondary">
+          <div class="section-secondary heatmap-home-section">
             <div class="section-header">
               <div class="header-title">
                 <span class="title-icon">
@@ -346,7 +346,7 @@
               </Calendar>
             </div>
           </div>
-          <div class="section-secondary">
+          <div class="section-secondary quick-home-section">
             <div class="section-header">
               <div class="header-title">
                 <span class="title-icon">
@@ -1087,6 +1087,18 @@ onMounted(() => {
   gap: 20px;
   min-width: 0;
   width: 100%;
+}
+
+.heatmap-home-section {
+  order: 1;
+}
+
+.weekly-home-section {
+  order: 2;
+}
+
+.quick-home-section {
+  order: 3;
 }
 
 .section-secondary {

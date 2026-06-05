@@ -475,6 +475,9 @@
                                 <em>{{ achievementRarity(badge) }}</em>
                             </div>
                             <p>{{ achievementDescription(badge) }}</p>
+                            <div class="achievement-condition" v-if="achievementCondition(badge)">
+                                条件：{{ achievementCondition(badge) }}
+                            </div>
                             <div class="achievement-detail-progress">
                                 <div><span :style="{ width: badge.progress + '%' }"></span></div>
                                 <b>{{ badge.unlocked ? '已解锁' : badge.hidden ? '进度隐藏' : `${badge.progress}%` }}</b>
@@ -707,6 +710,10 @@ const achievementLabel = (badge: AchievementBadge) => {
 
 const achievementDescription = (badge: AchievementBadge) => {
     return badge.hidden && !badge.unlocked ? '隐藏成就，解锁后显示。' : badge.description;
+}
+
+const achievementCondition = (badge: AchievementBadge) => {
+    return badge.hidden && !badge.unlocked ? '' : badge.condition;
 }
 
 const achievementIcon = (badge: AchievementBadge) => {
@@ -2596,12 +2603,18 @@ onBeforeUnmount(() => {
 }
 
 .achievement-view-all:hover,
-.achievement-drawer-tabs button:hover,
-.achievement-drawer-tabs button.active,
 .achievement-drawer-close:hover {
-    color: var(--text-reverse-color);
+    color: var(--active-color);
     border-color: var(--active-color);
-    background-color: var(--active-color);
+    background-color: var(--background-color-2);
+}
+
+.achievement-drawer-tabs button:hover,
+.achievement-drawer-tabs button.active {
+    color: var(--active-color);
+    border-color: var(--active-color);
+    background-color: color-mix(in srgb, var(--active-color) 14%, var(--background-color-content));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--active-color) 24%, transparent);
 }
 
 .achievement-card {
@@ -2623,8 +2636,9 @@ onBeforeUnmount(() => {
 }
 
 .achievement-card.locked {
-    opacity: 0.58;
-    filter: grayscale(0.35);
+    opacity: 1;
+    border-style: dashed;
+    background-color: color-mix(in srgb, var(--section-background-color) 88%, var(--background-color-2));
 }
 
 .achievement-icon {
@@ -2654,8 +2668,9 @@ onBeforeUnmount(() => {
 
 .achievement-card.tone-muted .achievement-icon,
 .achievement-card.locked .achievement-icon {
-    color: var(--text-light-color);
-    background-color: var(--background-color-2);
+    color: var(--text-default-color);
+    border: 1px solid var(--divider-color);
+    background-color: color-mix(in srgb, var(--background-color-2) 78%, var(--background-color-content));
 }
 
 .achievement-info {
@@ -2789,7 +2804,9 @@ onBeforeUnmount(() => {
 }
 
 .achievement-detail-card.locked {
-    opacity: 0.68;
+    opacity: 1;
+    border-style: dashed;
+    background-color: color-mix(in srgb, var(--section-background-color) 88%, var(--background-color-2));
 }
 
 .achievement-detail-card.tone-gold .achievement-detail-icon {
@@ -2806,8 +2823,9 @@ onBeforeUnmount(() => {
 
 .achievement-detail-card.tone-muted .achievement-detail-icon,
 .achievement-detail-card.locked .achievement-detail-icon {
-    color: var(--text-light-color);
-    background-color: var(--background-color-2);
+    color: var(--text-default-color);
+    border: 1px solid var(--divider-color);
+    background-color: color-mix(in srgb, var(--background-color-2) 78%, var(--background-color-content));
 }
 
 .achievement-detail-top {
@@ -2835,6 +2853,14 @@ onBeforeUnmount(() => {
     margin: 6px 0 10px;
     color: var(--text-light-color);
     font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.achievement-condition {
+    margin: -2px 0 10px;
+    color: var(--text-default-color);
+    font-size: var(--text-xs);
+    font-weight: 800;
     line-height: 1.6;
 }
 
