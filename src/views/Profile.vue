@@ -144,6 +144,38 @@
                                 <span class="label">总提交</span>
                             </div>
                         </div>
+                        <div v-if="teamInfo.id !== 0" class="team-dashboard">
+                            <div class="team-dashboard-title">
+                                <span>训练看板</span>
+                                <span>{{ teamDashboard.summary }}</span>
+                            </div>
+                            <div class="team-dashboard-grid">
+                                <div class="team-dashboard-stat">
+                                    <strong>{{ teamDashboard.weekAc }}</strong>
+                                    <span>本周 AC</span>
+                                </div>
+                                <div class="team-dashboard-stat">
+                                    <strong>{{ teamDashboard.monthAc }}</strong>
+                                    <span>本月 AC</span>
+                                </div>
+                                <div class="team-dashboard-stat">
+                                    <strong>{{ teamDashboard.activeMembers }}/{{ teamInfo.members.length }}</strong>
+                                    <span>活跃成员</span>
+                                </div>
+                            </div>
+                            <div class="team-dashboard-members" v-if="teamDashboard.members.length > 0">
+                                <div class="team-dashboard-member" v-for="member in teamDashboard.members.slice(0, 5)"
+                                    :key="member.userId">
+                                    <div class="team-dashboard-member-main">
+                                        <span>{{ member.name || member.username }}</span>
+                                        <span>{{ member.weekAc }} AC / {{ member.weekSubmit }} 提交</span>
+                                    </div>
+                                    <div class="team-dashboard-bar">
+                                        <div :style="{ width: teamMemberBarWidth(member.weekAc) + '%' }"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="team-members">
                             <div class="team-member" v-for="member in teamInfo.members.slice(0, 6)" :key="member.userId"
                                 @click="router.push(`/profile?id=${member.userId}`)">
@@ -292,6 +324,63 @@
                             </div>
                         </div>
                     </div>
+                    <div class="section weekly-section" style="position: relative;">
+                        <LoadingOverlay :show="loadingActivities || loadingStats" />
+                        <div class="header">
+                            <div class="header-title">
+                                <span class="title-icon">
+                                    <font-awesome-icon icon="fa-solid fa-calendar-days" />
+                                </span>
+                                <span class="title-text">训练周报</span>
+                            </div>
+                        </div>
+                        <div class="content">
+                            <div class="weekly-card">
+                                <div class="weekly-title">
+                                    <span>{{ weeklyReport.title }}</span>
+                                    <span>v1.1</span>
+                                </div>
+                                <div class="weekly-summary">{{ weeklyReport.summary }}</div>
+                                <div class="weekly-metrics">
+                                    <div class="weekly-metric" v-for="metric in weeklyReport.metrics" :key="metric.label">
+                                        <strong>{{ metric.value }}</strong>
+                                        <span>{{ metric.label }}</span>
+                                        <em>{{ metric.hint }}</em>
+                                    </div>
+                                </div>
+                                <div class="weekly-advice">{{ weeklyReport.advice }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section achievement-section" style="position: relative;">
+                        <LoadingOverlay :show="loadingActivities || loadingStats" />
+                        <div class="header">
+                            <div class="header-title">
+                                <span class="title-icon">
+                                    <font-awesome-icon icon="fa-solid fa-trophy" />
+                                </span>
+                                <span class="title-text">成就徽章</span>
+                            </div>
+                            <div class="header-tabs">
+                                <span class="tab active">{{ unlockedAchievements.length }}/{{ achievements.length }}</span>
+                            </div>
+                        </div>
+                        <div class="content">
+                            <div class="achievement-grid">
+                                <div class="achievement-card" v-for="badge in achievements.slice(0, 8)" :key="badge.key"
+                                    :class="[{ locked: !badge.unlocked }, `tone-${badge.tone}`]">
+                                    <div class="achievement-icon">{{ badge.icon }}</div>
+                                    <div class="achievement-info">
+                                        <div class="achievement-name">{{ badge.label }}</div>
+                                        <div class="achievement-desc">{{ badge.description }}</div>
+                                        <div class="achievement-progress">
+                                            <div :style="{ width: badge.progress + '%' }"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="section" style="position: relative;">
                         <LoadingOverlay :show="loadingHeatmap" />
                         <div class="header">
@@ -418,6 +507,15 @@ import type { User } from '@/utils/type';
 import Link from '@/utils/link';
 import Bot from '@/utils/bot';
 import { buildTrainingPortrait, buildTrainingStatuses, type TrainingPortrait, type TrainingStatusBadge } from '@/utils/trainingStatus';
+import {
+    buildAchievementBadges,
+    buildTeamDashboard,
+    buildWeeklyReport,
+    type AchievementBadge,
+    type TeamDashboard,
+    type TeamDashboardMember,
+    type WeeklyReport,
+} from '@/utils/v11Features';
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { LineChart } from "echarts/charts";
@@ -523,6 +621,10 @@ interface TeamMember {
     username: string;
     acTotal: number;
     submitTotal: number;
+    weekAc: number;
+    weekSubmit: number;
+    monthAc: number;
+    monthSubmit: number;
 }
 
 interface TeamInfo {
@@ -569,6 +671,25 @@ const platformStats = (platform: string) => {
         ac: Number(item?.ac?.total || 0),
         submit: Number(item?.submit?.total || 0),
     };
+}
+
+const achievements = computed<AchievementBadge[]>(() => {
+    return buildAchievementBadges(profilePeriodData.value, recentSubmitLogs.value, platformPeriodStats.value);
+})
+
+const unlockedAchievements = computed(() => achievements.value.filter((item) => item.unlocked))
+
+const weeklyReport = computed<WeeklyReport>(() => {
+    return buildWeeklyReport(profilePeriodData.value, recentSubmitLogs.value);
+})
+
+const teamDashboard = computed<TeamDashboard>(() => {
+    return buildTeamDashboard(teamInfo.value.members as TeamDashboardMember[]);
+})
+
+const teamMemberBarWidth = (weekAc: number) => {
+    const max = Math.max(...teamDashboard.value.members.map((member) => member.weekAc), 1);
+    return Math.max(8, Math.round((weekAc / max) * 100));
 }
 
 // 增加占位数据，保证刷新时页面变化小
@@ -669,7 +790,11 @@ const getTeamInfo = async () => {
             name: member.name,
             username: member.username,
             acTotal: stats ? Number(stats.ac.total) : 0,
-            submitTotal: stats ? Number(stats.submit.total) : 0
+            submitTotal: stats ? Number(stats.submit.total) : 0,
+            weekAc: stats ? Number(stats.ac.thisWeek) : 0,
+            weekSubmit: stats ? Number(stats.submit.thisWeek) : 0,
+            monthAc: stats ? Number(stats.ac.thisMonth) : 0,
+            monthSubmit: stats ? Number(stats.submit.thisMonth) : 0
         };
     });
     const sortedMembers = members.sort((a, b) => b.acTotal - a.acTotal || b.submitTotal - a.submitTotal || a.userId - b.userId);
@@ -1977,6 +2102,105 @@ onBeforeUnmount(() => {
     font-size: var(--text-xs);
 }
 
+.team-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--divider-color);
+}
+
+.team-dashboard-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.team-dashboard-title span:first-child {
+    color: var(--text-default-color);
+    font-size: var(--text-sm);
+    font-weight: 900;
+}
+
+.team-dashboard-title span:last-child {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+}
+
+.team-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.team-dashboard-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px;
+    border-radius: 10px;
+    background-color: var(--section-background-color);
+}
+
+.team-dashboard-stat strong {
+    color: var(--active-color);
+    font-size: var(--text-base);
+    font-variant-numeric: tabular-nums;
+}
+
+.team-dashboard-stat span {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+}
+
+.team-dashboard-members {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.team-dashboard-member {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.team-dashboard-member-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+}
+
+.team-dashboard-member-main span:first-child {
+    color: var(--text-default-color);
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.team-dashboard-member-main span:last-child {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-dashboard-bar {
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: var(--background-color-1);
+}
+
+.team-dashboard-bar div {
+    height: 100%;
+    border-radius: inherit;
+    background-color: var(--neon-cyan);
+    transition: width 0.25s ease;
+}
+
 .team-members {
     display: flex;
     flex-direction: column;
@@ -2236,6 +2460,176 @@ onBeforeUnmount(() => {
 .sync-empty {
     color: var(--text-light-color);
     font-size: var(--text-sm);
+}
+
+.weekly-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.weekly-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.weekly-title span:first-child {
+    color: var(--text-default-color);
+    font-size: var(--text-xl);
+    font-weight: 900;
+}
+
+.weekly-title span:last-child {
+    padding: 4px 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    color: var(--neon-cyan);
+    background-color: var(--background-color-2);
+    font-size: var(--text-xs);
+    font-weight: 900;
+}
+
+.weekly-summary,
+.weekly-advice {
+    color: var(--text-light-color);
+    font-size: var(--text-sm);
+    line-height: 1.8;
+}
+
+.weekly-advice {
+    padding-top: 10px;
+    border-top: 1px solid var(--divider-color);
+}
+
+.weekly-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.weekly-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    background-color: var(--section-background-color);
+}
+
+.weekly-metric strong {
+    color: var(--active-color);
+    font-size: var(--text-xl);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+.weekly-metric span {
+    color: var(--text-default-color);
+    font-size: var(--text-sm);
+    font-weight: 800;
+}
+
+.weekly-metric em {
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+    font-style: normal;
+}
+
+.achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.achievement-card {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    background-color: var(--section-background-color);
+    transition: all 0.2s ease;
+}
+
+.achievement-card:hover {
+    border-color: var(--neon-cyan);
+    transform: translateY(-2px);
+}
+
+.achievement-card.locked {
+    opacity: 0.58;
+    filter: grayscale(0.35);
+}
+
+.achievement-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    color: var(--text-reverse-color);
+    background-color: var(--neon-cyan);
+    font-size: var(--text-sm);
+    font-weight: 900;
+}
+
+.achievement-card.tone-gold .achievement-icon {
+    background-color: #f59e0b;
+}
+
+.achievement-card.tone-blue .achievement-icon {
+    background-color: var(--active-color);
+}
+
+.achievement-card.tone-red .achievement-icon {
+    background-color: #ef4444;
+}
+
+.achievement-card.tone-muted .achievement-icon,
+.achievement-card.locked .achievement-icon {
+    color: var(--text-light-color);
+    background-color: var(--background-color-2);
+}
+
+.achievement-info {
+    min-width: 0;
+}
+
+.achievement-name {
+    color: var(--text-default-color);
+    font-size: var(--text-sm);
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.achievement-desc {
+    margin-top: 4px;
+    color: var(--text-light-color);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    min-height: 2.8em;
+}
+
+.achievement-progress {
+    height: 5px;
+    margin-top: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: var(--background-color-1);
+}
+
+.achievement-progress div {
+    height: 100%;
+    border-radius: inherit;
+    background-color: var(--neon-cyan);
 }
 
 .activities {
@@ -2592,6 +2986,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width:1000px) {
+    .weekly-metrics,
+    .achievement-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .moblie-actions {
         display: flex;
         flex-direction: column;
@@ -2730,6 +3129,27 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width:600px) {
+    .weekly-metrics,
+    .achievement-grid,
+    .team-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .achievement-card {
+        grid-template-columns: 40px minmax(0, 1fr);
+    }
+
+    .achievement-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+
+    .weekly-title {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
     .profile-chart-container {
         height: 300px;
     }
