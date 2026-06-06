@@ -109,8 +109,11 @@
                                             <span v-if="Number(member.userId) === Number(teamInfo.ownerId)">队长</span>
                                         </span>
                                     </div>
-                                    <button v-if="Number(member.userId) !== Number(teamInfo.ownerId)"
-                                        class="team-action danger" @click="removeMember(member.userId)">移除</button>
+                                    <div v-if="Number(member.userId) !== Number(teamInfo.ownerId)"
+                                        class="team-member-actions">
+                                        <button class="team-action" @click="transferOwner(member)">设为队长</button>
+                                        <button class="team-action danger" @click="removeMember(member.userId)">移除</button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="team-panel-title">邀请成员</div>
@@ -1390,6 +1393,23 @@ const removeMember = async (userId: number) => {
     }
 }
 
+const transferOwner = async (member: TeamMember) => {
+    if (!canManageTeam.value || Number(member.userId) === Number(teamInfo.value.ownerId)) {
+        return;
+    }
+    const displayName = member.name || member.username;
+    const confirmed = window.confirm(`确定要把团队「${teamInfo.value.name}」的队长转移给 ${displayName} 吗？转移后你将不再拥有团队管理权限。`);
+    if (!confirmed) {
+        return;
+    }
+    const response = await API.user.team.transferOwner(Number(member.userId));
+    Toast.stdResponse(response);
+    if (response.success) {
+        teamPanelMode.value = 'idle';
+        await getTeamInfo();
+    }
+}
+
 const leaveTeam = async () => {
     if (!canLeaveTeam.value || teamInfo.value.id === 0) {
         return;
@@ -2559,6 +2579,15 @@ onBeforeUnmount(() => {
     object-fit: cover;
 }
 
+.team-member-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
 .team-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -3002,9 +3031,9 @@ onBeforeUnmount(() => {
 
 .achievement-drawer-close {
     border: 1px solid var(--divider-color);
-    border-radius: 12px;
-    color: var(--text-default-color);
-    background-color: var(--background-color-1);
+    border-radius: 8px;
+    color: var(--text-secondary-color);
+    background-color: var(--background-color-2);
     font-family: inherit;
     font-weight: 800;
     cursor: pointer;
@@ -3015,25 +3044,25 @@ onBeforeUnmount(() => {
 }
 
 .achievement-drawer-close:hover {
-    color: var(--active-color);
-    border-color: var(--active-color);
-    background-color: var(--background-color-2);
+    color: white;
+    border-color: var(--neon-cyan);
+    background-color: var(--neon-cyan);
 }
 
 .achievement-action-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 34px;
-    padding: 6px 14px;
+    min-height: 30px;
+    padding: 4px 10px;
     border: 1px solid var(--divider-color);
-    border-radius: 6px;
+    border-radius: 8px;
     color: var(--text-secondary-color);
     background-color: var(--background-color-2);
     font-family: inherit;
-    font-size: var(--text-base);
-    font-weight: 500;
-    line-height: 1.4;
+    font-size: var(--text-sm);
+    font-weight: 800;
+    line-height: 1;
     white-space: nowrap;
     cursor: pointer;
     transition:
@@ -3052,7 +3081,9 @@ onBeforeUnmount(() => {
 }
 
 .achievement-view-all {
-    font-size: var(--text-sm);
+    min-height: 28px;
+    padding: 4px 9px;
+    font-size: var(--text-xs);
 }
 
 .achievement-card {
@@ -3225,9 +3256,9 @@ onBeforeUnmount(() => {
 }
 
 .achievement-drawer-count {
-    padding: 7px 10px;
+    padding: 5px 9px;
     border: 1px solid var(--divider-color);
-    border-radius: 12px;
+    border-radius: 10px;
     color: var(--active-color);
     background-color: var(--background-color-1);
     font-size: var(--text-sm);
@@ -3235,9 +3266,9 @@ onBeforeUnmount(() => {
 }
 
 .achievement-drawer-close {
-    width: 36px;
-    height: 36px;
-    font-size: var(--text-xl);
+    width: 30px;
+    height: 30px;
+    font-size: var(--text-base);
     line-height: 1;
 }
 
@@ -3246,11 +3277,11 @@ onBeforeUnmount(() => {
     flex-wrap: wrap;
     justify-content: flex-start;
     gap: 8px;
-    margin: 18px 0;
+    margin: 14px 0;
 }
 
 .achievement-drawer-tabs .achievement-action-button {
-    min-width: 78px;
+    min-width: 64px;
 }
 
 .achievement-drawer-list {

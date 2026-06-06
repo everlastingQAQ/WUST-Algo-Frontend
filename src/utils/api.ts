@@ -1285,6 +1285,29 @@ export default class API {
           null,
         );
       },
+      transferOwner: async (userId: number): Promise<stdResponse> => {
+        return apiCall(
+          () =>
+            axios.post(
+              "/api/user/team/owner/transfer",
+              { userId },
+              {
+                headers: { Authorization: `Bearer ${JWT.token}` },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200 || !response.data.success) {
+              return { message: response.data.message || "转移队长失败" };
+            }
+            return {
+              data: response.data,
+              message: response.data.message || "队长已转移",
+            };
+          },
+          "转移队长失败",
+          null,
+        );
+      },
       leave: async (): Promise<stdResponse> => {
         return apiCall(
           () =>
