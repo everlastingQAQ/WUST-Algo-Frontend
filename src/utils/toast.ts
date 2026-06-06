@@ -4,28 +4,33 @@
 
 import type { stdResponse } from "./api";
 
+const normalizeMessage = (message: string, fallback: string) => {
+    const value = String(message || "").trim();
+    return value || fallback;
+};
+
 export default class Toast {
     static success = (message: string) => {
         window.dispatchEvent(new CustomEvent('show-toast', {
-            detail: { message, type: 'success' }
+            detail: { message: normalizeMessage(message, "操作成功"), type: 'success' }
         }));
     }
 
     static info = (message: string) => {
         window.dispatchEvent(new CustomEvent('show-toast', {
-            detail: { message, type: 'info' }
+            detail: { message: normalizeMessage(message, "提示"), type: 'info' }
         }));
     }
 
     static warn = (message: string) => {
         window.dispatchEvent(new CustomEvent('show-toast', {
-            detail: { message, type: 'warn' }
+            detail: { message: normalizeMessage(message, "请注意"), type: 'warn' }
         }));
     }
 
     static error = (message: string) => {
         window.dispatchEvent(new CustomEvent('show-toast', {
-            detail: { message, type: 'error' }
+            detail: { message: normalizeMessage(message, "操作失败"), type: 'error' }
         }));
     }
 
@@ -35,12 +40,13 @@ export default class Toast {
      * @param showSuccess 是否处理成功响应
     */
     static stdResponse = (response: stdResponse, showSuccess: boolean = true) => {
+        const message = response.message || (response.success ? "操作成功" : "操作失败");
         if (response.success) {
             if (showSuccess) {
-                Toast.success(response.message);
+                Toast.success(message);
             }
         } else {
-            Toast.error(response.message);
+            Toast.error(message);
         }
     }
 }

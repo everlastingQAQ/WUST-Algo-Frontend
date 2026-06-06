@@ -9,8 +9,8 @@
             </div>
             <div class="footer">
                 <div class="actions">
-                    <button class="action y" @click="handleYes">{{ yesText }}</button>
-                    <button class="action n" @click="handleNo">{{ noText }}</button>
+                    <AppButton variant="primary" size="sm" @click="handleYes">{{ yesText }}</AppButton>
+                    <AppButton size="sm" @click="handleNo">{{ noText }}</AppButton>
                 </div>
             </div>
         </div>
@@ -19,6 +19,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import AppButton from '@/components/ui/AppButton.vue';
 
 // 定义组件属性
 const props = withDefaults(defineProps<{
@@ -124,41 +125,4 @@ defineExpose({
     justify-content: flex-end;
 }
 
-.action {
-    min-height: 30px;
-    padding: 4px 12px;
-    border: 1px solid var(--divider-color);
-    border-radius: var(--control-radius);
-    color: var(--text-secondary-color);
-    background-color: var(--background-color-2);
-    cursor: pointer;
-    font-family: inherit;
-    font-size: var(--text-sm);
-    font-weight: 800;
-    line-height: 1;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.action.y {
-    background-color: var(--neon-cyan);
-    color: white;
-    border-color: var(--neon-cyan);
-}
-
-.action:hover,
-.action.y:hover {
-    background-color: var(--neon-cyan);
-    border-color: var(--neon-cyan);
-    color: white;
-}
-
-.action.n {
-    background-color: #f8f9fa;
-    color: #6c757d;
-}
-
-.action.n:hover {
-    background-color: #e2e6ea;
-    color: #495057;
-}
 </style>

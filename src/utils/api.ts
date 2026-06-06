@@ -25,6 +25,32 @@ export interface stdResponse<T = any> {
   [property: string]: any;
 }
 
+export function normalizeApiError(error: any, fallback: string): string {
+  const data = error?.response?.data;
+  if (typeof data === "string" && data.trim()) {
+    return data.trim();
+  }
+
+  const candidates = [
+    data?.message,
+    data?.error,
+    data?.reason,
+    data?.code,
+    error?.message,
+  ];
+  const message = candidates.find(
+    (value) => typeof value === "string" && value.trim(),
+  );
+  if (message) return String(message).trim();
+
+  const status = Number(error?.response?.status || 0);
+  if (status === 401) return "登录状态已失效，请重新登录";
+  if (status === 403) return "权限不足，无法完成操作";
+  if (status === 404) return "请求资源不存在";
+  if (status >= 500) return "服务器开小差了，请稍后再试";
+  return fallback;
+}
+
 export interface UserAuthRegisterRequest {
   email: string;
   groupId: number;
@@ -596,10 +622,7 @@ async function apiCall<T>(
     }
   } catch (error: any) {
     console.error(error);
-    stdRes.message =
-      error?.response?.data?.message ||
-      error?.response?.data?.error ||
-      errorMsg;
+    stdRes.message = normalizeApiError(error, errorMsg);
   }
   return stdRes;
 }
@@ -633,7 +656,7 @@ export default class API {
           }
         } catch (error: any) {
           console.error(error);
-          stdRes.message = "登录失败";
+          stdRes.message = normalizeApiError(error, "登录失败");
         }
         return stdRes;
       },
@@ -695,7 +718,7 @@ export default class API {
           }
         } catch (error: any) {
           console.error(error);
-          stdRes.message = "注册失败";
+          stdRes.message = normalizeApiError(error, "注册失败");
         }
         return stdRes;
       },
@@ -825,7 +848,7 @@ export default class API {
           }
         } catch (error: any) {
           console.error(error);
-          stdRes.message = "更新用户资料失败";
+          stdRes.message = normalizeApiError(error, "更新用户资料失败");
         }
 
         return stdRes;
@@ -873,10 +896,7 @@ export default class API {
           }
         } catch (error: any) {
           console.error(error);
-          stdRes.message =
-            error?.response?.data?.message ||
-            error?.response?.data?.error ||
-            "更新昵称失败";
+          stdRes.message = normalizeApiError(error, "更新昵称失败");
         }
 
         return stdRes;
@@ -937,10 +957,7 @@ export default class API {
           }
         } catch (error: any) {
           console.error(error);
-          stdRes.message =
-            error?.response?.data?.message ||
-            error?.response?.data?.error ||
-            "修改密码失败";
+          stdRes.message = normalizeApiError(error, "修改密码失败");
         }
 
         return stdRes;
@@ -1932,7 +1949,7 @@ export default class API {
           }
         } catch (error: any) {
           console.error(error);
-          stdRes.message = "获取公告列表失败";
+          stdRes.message = normalizeApiError(error, "获取公告列表失败");
         }
         return stdRes;
       },
