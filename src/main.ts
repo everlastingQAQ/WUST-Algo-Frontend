@@ -44,6 +44,8 @@ import {
 import "./assets/css/theme.css";
 // 字号
 import "./assets/css/fontsize.css";
+// 设计系统与历史按钮兼容层
+import "./assets/css/design-system.css";
 
 library.add(
   faUser,

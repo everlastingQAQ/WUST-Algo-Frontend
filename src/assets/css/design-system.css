@@ -1,0 +1,171 @@
+/*
+ * WUST Algo Design System
+ *
+ * This file is the compatibility layer for legacy page buttons and the token
+ * source for new UI components. New code should prefer components under
+ * src/components/ui, while old .btn-like classes are normalized here.
+ */
+
+:root {
+  --ds-font-family: 'Jetbrains Mono', 'Maple Mono CN', monospace;
+  --ds-radius-sm: var(--control-radius, 8px);
+  --ds-radius-md: 12px;
+  --ds-control-height-sm: 30px;
+  --ds-control-height-md: 36px;
+  --ds-control-height-lg: 42px;
+  --ds-control-padding-x-sm: 12px;
+  --ds-control-padding-x-md: 16px;
+  --ds-control-font-size: var(--text-sm);
+  --ds-control-font-weight: 800;
+  --ds-control-bg: var(--background-color-2);
+  --ds-control-bg-muted: var(--section-background-color);
+  --ds-control-border: var(--divider-color);
+  --ds-control-text: var(--text-secondary-color);
+  --ds-control-text-strong: var(--text-default-color);
+  --ds-control-primary: var(--neon-cyan);
+  --ds-control-primary-text: var(--text-reverse-color, #fff);
+  --ds-control-danger: #f44336;
+  --ds-control-danger-soft: color-mix(in srgb, var(--ds-control-danger) 14%, var(--background-color-2));
+  --ds-motion-fast: 0.2s ease;
+  --ds-focus-ring: 0 0 0 3px color-mix(in srgb, var(--ds-control-primary) 24%, transparent);
+}
+
+button,
+[role="button"],
+.btn,
+.login-btn,
+.register-btn,
+.team-edit,
+.team-action,
+.team-candidate,
+.achievement-action-button,
+.achievement-drawer-close,
+.invite-action,
+.page-nav-btn,
+.filter-apply-btn,
+.filter-reset-btn,
+.filter-close-btn,
+.action-btn,
+.modal-close,
+.toolbar-btn,
+.ranking-switch button,
+.pageButtons button,
+.pageInput button,
+.dm-search button,
+.compose-footer button,
+.message-tabs button {
+  min-height: var(--ds-control-height-sm) !important;
+  padding: 4px var(--ds-control-padding-x-sm) !important;
+  border: 1px solid var(--ds-control-border) !important;
+  border-radius: var(--ds-radius-sm) !important;
+  color: var(--ds-control-text) !important;
+  background: var(--ds-control-bg) !important;
+  font-family: var(--ds-font-family) !important;
+  font-size: var(--ds-control-font-size) !important;
+  font-weight: var(--ds-control-font-weight) !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color var(--ds-motion-fast),
+    border-color var(--ds-motion-fast),
+    color var(--ds-motion-fast),
+    opacity var(--ds-motion-fast),
+    box-shadow var(--ds-motion-fast) !important;
+}
+
+button:hover:not(:disabled),
+[role="button"]:hover,
+.btn:hover,
+.btn.def:hover,
+.btn-default:hover,
+.btn-primary:hover,
+.login-btn:hover:not(:disabled),
+.register-btn:hover:not(:disabled),
+.team-edit:hover,
+.team-action:hover,
+.team-candidate:hover,
+.achievement-action-button:hover,
+.achievement-action-button.active,
+.achievement-drawer-close:hover,
+.invite-action:hover,
+.page-nav-btn:hover:not(:disabled),
+.filter-apply-btn:hover,
+.filter-reset-btn:hover,
+.filter-close-btn:hover,
+.action-btn:hover,
+.modal-close:hover,
+.toolbar-btn:hover,
+.ranking-switch button:hover,
+.ranking-switch button.active,
+.pageButtons button:hover,
+.pageButtons button.active,
+.pageInput button:hover,
+.dm-search button:hover:not(:disabled),
+.compose-footer button:hover:not(:disabled),
+.message-tabs button:hover,
+.message-tabs button.active {
+  border-color: var(--ds-control-primary) !important;
+  color: var(--ds-control-primary-text) !important;
+  background: var(--ds-control-primary) !important;
+}
+
+.btn.dan:hover,
+.btn-danger:hover,
+.team-edit.danger:hover,
+.team-action.danger:hover {
+  border-color: var(--ds-control-danger) !important;
+  color: #fff !important;
+  background: var(--ds-control-danger) !important;
+}
+
+button:disabled,
+.btn:disabled,
+.login-btn:disabled,
+.register-btn:disabled,
+.team-action:disabled,
+.page-nav-btn:disabled,
+.dm-search button:disabled,
+.compose-footer button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.55 !important;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+.btn:focus-visible,
+.login-btn:focus-visible,
+.register-btn:focus-visible,
+.team-edit:focus-visible,
+.team-action:focus-visible,
+.achievement-action-button:focus-visible,
+.invite-action:focus-visible,
+.page-nav-btn:focus-visible,
+.action-btn:focus-visible,
+.modal-close:focus-visible {
+  outline: none !important;
+  box-shadow: var(--ds-focus-ring) !important;
+}
+
+input,
+textarea,
+select {
+  font-family: var(--ds-font-family) !important;
+  border-radius: var(--ds-radius-sm) !important;
+}
+
+.ds-card {
+  border: 1px solid var(--divider-color);
+  border-radius: var(--ds-radius-md);
+  background: var(--background-color-content);
+}
+
+.ds-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-default-color);
+  font-size: var(--text-xl);
+  font-weight: 900;
+}
