@@ -2,7 +2,7 @@
 
 WUST Algo Frontend 是 WUST ACM 算法训练数据平台的前端项目，基于 Vue 3、TypeScript 和 Vite 构建。项目用于展示 OJ 绑定、刷题动态、个人资料、团队、消息、数据统计与后台管理等功能。
 
-后端仓库：`https://github.com/everlastingQAQ/WUST-Algo-tracker`
+后端仓库：`https://github.com/WUSTACM/WUST-Algo-tracker`
 
 当前稳定版本：`v1.1.3`。版本变更记录见 [CHANGELOG.md](./CHANGELOG.md)。
 

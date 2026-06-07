@@ -6,7 +6,7 @@
                     <h4>WUST - Algo</h4>
                     <p class="description">WUST - Algo，WUST ACM 监测平台。</p>
                     <div class="social-icons">
-                        <a href="https://github.com/everlastingQAQ/WUST-Algo-Frontend" target="_blank" title="GitHub">
+                        <a href="https://github.com/WUSTACM/WUST-Algo-Frontend" target="_blank" title="GitHub">
                             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                                 viewBox="0 0 1024 1024">
                                 <path
