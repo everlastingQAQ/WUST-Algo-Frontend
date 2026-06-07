@@ -23,6 +23,14 @@ for command_name in envsubst npm sudo nginx systemctl; do
   fi
 done
 
+run_sudo() {
+  if [[ -n "${SUDO_PASSWORD:-}" ]]; then
+    printf "%s\n" "${SUDO_PASSWORD}" | sudo -S "$@"
+  else
+    sudo "$@"
+  fi
+}
+
 echo "Installing frontend dependencies..."
 cd "${repo_dir}"
 npm ci --include=dev
@@ -33,11 +41,11 @@ npm run build
 echo "Installing Nginx site..."
 tmp_conf="$(mktemp)"
 envsubst '${DOMAIN} ${NGINX_PORT} ${APP_ROOT} ${BACKEND_UPSTREAM} ${USER_UPSTREAM} ${CORE_UPSTREAM} ${AGENT_UPSTREAM}' < "${deploy_dir}/nginx/wust-algo.conf.tpl" > "${tmp_conf}"
-sudo install -m 0644 "${tmp_conf}" "/etc/nginx/sites-available/${NGINX_SITE_NAME}"
+run_sudo install -m 0644 "${tmp_conf}" "/etc/nginx/sites-available/${NGINX_SITE_NAME}"
 rm -f "${tmp_conf}"
 
-sudo ln -sfn "/etc/nginx/sites-available/${NGINX_SITE_NAME}" "/etc/nginx/sites-enabled/${NGINX_SITE_NAME}"
-sudo nginx -t
-sudo systemctl reload nginx
+run_sudo ln -sfn "/etc/nginx/sites-available/${NGINX_SITE_NAME}" "/etc/nginx/sites-enabled/${NGINX_SITE_NAME}"
+run_sudo nginx -t
+run_sudo systemctl reload nginx
 
 echo "Frontend deployment finished for http://${DOMAIN}:${NGINX_PORT}"

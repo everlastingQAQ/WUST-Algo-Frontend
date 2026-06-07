@@ -1067,4 +1067,71 @@ onBeforeUnmount(() => {
     max-width: 88%;
   }
 }
+
+@media (max-width: 520px) {
+  .bulletin-page {
+    padding: 0;
+  }
+
+  .page-header {
+    border-radius: 0;
+  }
+
+  .dm-shell {
+    gap: 10px;
+  }
+
+  .conversation-list,
+  .thread-panel {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+  }
+
+  .conversation-list {
+    max-height: 240px;
+    padding: 10px;
+  }
+
+  .dm-search {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .conversation-item {
+    padding: 10px;
+  }
+
+  .conversation-item img,
+  .system-entry-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .thread-header {
+    padding: 12px;
+  }
+
+  .message-list {
+    padding: 12px;
+  }
+
+  .message-compose {
+    padding: 10px;
+  }
+
+  .message-compose textarea {
+    min-height: 72px;
+  }
+
+  .bulletin-card {
+    padding: 12px;
+  }
+
+  .card-title-row,
+  .card-meta,
+  .invite-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 </style>

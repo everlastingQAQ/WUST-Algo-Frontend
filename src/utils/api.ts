@@ -167,6 +167,7 @@ export interface CodeSpiderUpdateResponse {
   code: string;
   message: string;
   jobId?: number;
+  platform?: string;
   [property: string]: any;
 }
 
@@ -1687,7 +1688,7 @@ export default class API {
           null,
         );
       },
-      update: async (userId: number): Promise<stdResponse> => {
+      update: async (userId: number, platform = ""): Promise<stdResponse> => {
         const stdRes: stdResponse = {
           message: "",
           success: false,
@@ -1703,7 +1704,7 @@ export default class API {
           () =>
             axios.post<CodeSpiderUpdateResponse>(
               "/api/core/spider/update",
-              { userId },
+              { userId, platform },
               { headers: { Authorization: `Bearer ${JWT.token}` } },
             ),
           (response) => {

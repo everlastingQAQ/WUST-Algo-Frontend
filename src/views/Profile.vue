@@ -315,6 +315,14 @@
                                         <span class="sync-badge" :class="{ stale: item.isStale, failed: item.status === 'failed', running: item.status === 'running' }">
                                             {{ formatSyncStatus(item) }}
                                         </span>
+                                        <button
+                                            v-if="isSelfProfile"
+                                            class="sync-refresh-btn"
+                                            :disabled="isRefreshingPlatform(item.platform)"
+                                            @click="updatePlatformLog(item.platform)"
+                                        >
+                                            {{ isRefreshingPlatform(item.platform) ? '刷新中' : '刷新' }}
+                                        </button>
                                     </div>
                                 </div>
                                 </template>
@@ -1930,13 +1938,23 @@ const getData = async () => {
     }
 }
 
-const updateLog = async () => {
-    const response = await API.core.spider.update(user.value.userId);
+const updateLog = async (platform = "") => {
+    const response = await API.core.spider.update(user.value.userId, platform);
     Toast.stdResponse(response);
     const jobId = Number(response.data?.jobId || 0);
     if (response.success && jobId > 0) {
         await pollSpiderJob(jobId);
     }
+}
+
+const updatePlatformLog = async (platform: string) => {
+    if (!platform) return;
+    await updateLog(platform);
+}
+
+const isRefreshingPlatform = (platform: string) => {
+    if (!activeSpiderJob.value || !["queued", "running"].includes(activeSpiderJob.value.status)) return false;
+    return !activeSpiderJob.value.currentPlatform || activeSpiderJob.value.currentPlatform === platform;
 }
 
 const stopSpiderJobPolling = () => {
@@ -3013,6 +3031,11 @@ onBeforeUnmount(() => {
     color: var(--active-color);
 }
 
+.sync-refresh-btn {
+    flex-shrink: 0;
+    min-width: 58px;
+}
+
 .sync-empty {
     color: var(--text-light-color);
     font-size: var(--text-sm);
@@ -3957,13 +3980,15 @@ onBeforeUnmount(() => {
     .sync-side {
         width: 100%;
         justify-content: space-between;
+        flex-wrap: wrap;
     }
 
     .sync-counts {
         align-items: flex-start;
     }
 
-    .sync-badge {
+    .sync-badge,
+    .sync-refresh-btn {
         align-self: flex-start;
     }
 

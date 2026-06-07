@@ -9,10 +9,9 @@ let gitHash = ''
 let gitDate = ''
 
 try {
-  gitHash = execSync('git rev-parse --short HEAD').toString().trim()
-  gitDate = new Date(execSync('git log -1 --format=%cd').toString().trim()).toISOString()
-} catch (e) {
-  console.error('Failed to get git info:', e)
+  gitHash = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  gitDate = new Date(execSync('git log -1 --format=%cd', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()).toISOString()
+} catch {
   gitHash = 'N/A'
   gitDate = new Date().toISOString()
 }
