@@ -39,14 +39,16 @@ export default class Toast {
      * @param response 标准响应
      * @param showSuccess 是否处理成功响应
     */
-    static stdResponse = (response: stdResponse, showSuccess: boolean = true) => {
+    static stdResponse = (response: stdResponse, showSuccess: boolean = true, showError: boolean = showSuccess) => {
         const message = response.message || (response.success ? "操作成功" : "操作失败");
         if (response.success) {
             if (showSuccess) {
                 Toast.success(message);
             }
         } else {
-            Toast.error(message);
+            if (showError) {
+                Toast.error(message);
+            }
         }
     }
 }
