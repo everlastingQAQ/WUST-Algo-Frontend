@@ -369,43 +369,31 @@ watch(() => [route.query.id, route.query.page], async () => {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        min-height: 46px;
-        padding: 6px 10px;
+        padding: 10px;
         border-radius: 8px;
 
         perspective: 1000px;
 
         >.info {
             display: flex;
-            min-width: 0;
             flex-grow: 1;
-            flex-direction: row;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
             cursor: pointer;
 
             >.platform {
-                flex: 0 0 auto;
                 color: var(--text-light-color);
                 font-size: var(--text-sm);
             }
 
             >.title {
-                min-width: 0;
-                overflow: hidden;
                 color: var(--text-default-color);
-                font-size: var(--text-base);
+                font-size: var(--text-lg);
                 font-weight: bold;
-                text-overflow: ellipsis;
-                white-space: nowrap;
             }
 
             >.time {
-                flex: 0 0 auto;
                 color: var(--text-light-color);
                 font-size: var(--text-sm);
-                white-space: nowrap;
             }
         }
 
@@ -414,7 +402,6 @@ watch(() => [route.query.id, route.query.page], async () => {
             position: relative;
             display: flex;
             flex-direction: row;
-            flex-shrink: 0;
             gap: 5px;
         }
 
@@ -445,9 +432,13 @@ watch(() => [route.query.id, route.query.page], async () => {
 }
 
 .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     margin: 0 5px;
-    min-height: 28px;
-    padding: 3px 10px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0 10px;
     background-color: var(--background-color-2);
     color: var(--text-secondary-color);
     border: 1px solid var(--divider-color);
@@ -485,17 +476,9 @@ watch(() => [route.query.id, route.query.page], async () => {
 @media (max-width:500px) {
     .contestList {
         >.contestItem {
-            align-items: stretch;
-            flex-direction: column;
-
-            >.info {
-                width: 100%;
-            }
-
             >.actions {
                 gap: 10px;
-                flex-direction: row;
-                flex-wrap: wrap;
+                flex-direction: column;
             }
         }
     }
