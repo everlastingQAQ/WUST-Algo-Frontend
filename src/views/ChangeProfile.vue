@@ -611,4 +611,184 @@ const handleOjConfirm = async () => {
 .editProfile {
   margin-top: 32px;
 }
+
+@media (max-width: 900px) {
+  .editProfile,
+  .addOj {
+    width: min(100% - 28px, 720px);
+    align-items: flex-start;
+  }
+
+  .editProfile {
+    margin-top: 24px;
+  }
+
+  .addOj {
+    margin-top: 24px;
+  }
+
+  .addOj > .info,
+  .editProfile > .info {
+    width: 100%;
+  }
+
+  .addOj > .info > .item,
+  .editProfile > .info > .item {
+    width: 100%;
+  }
+
+  .addOj > .info > .item > label,
+  .editProfile > .info > .item > label {
+    width: 88px;
+    flex-shrink: 0;
+  }
+
+  .addOj input,
+  .editProfile input {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .editProfile > .info > .avatar-url > .avatar-url-control > input {
+    width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .editProfile,
+  .addOj {
+    width: min(100% - 20px, 520px);
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .editProfile {
+    align-items: center;
+  }
+
+  .editProfile > .avatar {
+    width: 156px;
+    height: 156px;
+  }
+
+  .editProfile > .info > .title,
+  .addOj > .info > .title {
+    font-size: var(--text-lg);
+  }
+
+  .addOj > .info > .item,
+  .editProfile > .info > .item {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .addOj > .info > .item > label,
+  .editProfile > .info > .item > label {
+    width: auto;
+  }
+
+  .addOj input,
+  .editProfile input,
+  .addOj > .info > .item > .select,
+  .addOj > .info > .item > .select > .selected {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .addOj > .info > .item > .select > .options {
+    width: 100%;
+  }
+
+  .editProfile > .info > .avatar-url > .avatar-url-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .editProfile > .info > .avatar-url > .avatar-url-control > input,
+  .editProfile > .info > .avatar-url > .avatar-url-control > .clear-avatar {
+    width: 100%;
+  }
+
+  .editProfile > .info > .email-enabled {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .addOj > .info > .actions,
+  .editProfile > .info > .actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .addOj button,
+  .editProfile button {
+    width: 100%;
+    height: 36px;
+  }
+
+  .addOj > .info > .desc {
+    font-size: var(--text-xs);
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 430px) {
+  .editProfile,
+  .addOj {
+    width: min(100% - 16px, 390px);
+    gap: 14px;
+  }
+
+  .editProfile {
+    margin-top: 18px;
+  }
+
+  .addOj {
+    margin-top: 18px;
+  }
+
+  .editProfile > .avatar {
+    width: 132px;
+    height: 132px;
+  }
+
+  .editProfile > .avatar .avatar-overlay {
+    font-size: var(--text-xs);
+  }
+
+  .addOj,
+  .editProfile {
+    label,
+    input {
+      font-size: var(--text-sm);
+    }
+
+    input {
+      padding: 9px 12px;
+    }
+  }
+
+  .editProfile > .info > .title,
+  .addOj > .info > .title {
+    font-size: var(--text-base);
+  }
+
+  .editProfile > .info > .hint,
+  .editProfile > .info > .avatar-url > .hint {
+    font-size: var(--text-xs);
+  }
+
+  .editProfile > .info > .password-title {
+    margin-top: 4px;
+  }
+
+  .addOj > .info > .item > .select > .selected,
+  .addOj > .info > .item > .select > .options > .option {
+    padding: 9px 12px;
+  }
+}
 </style>

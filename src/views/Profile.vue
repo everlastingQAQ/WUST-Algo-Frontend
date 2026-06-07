@@ -723,6 +723,7 @@ const detailModal = ref({
 const platformRefreshCooldowns = ref<Record<string, number>>({});
 let spiderJobTimer: number | undefined;
 let refreshCooldownTimer: number | undefined;
+let previousBodyOverflow = '';
 
 const syncScreenSize = () => {
     isCompactScreen.value = window.innerWidth <= 640;
@@ -1298,6 +1299,20 @@ const loadAchievementGlobalRates = async () => {
 watch(showAchievementDrawer, (visible) => {
     if (visible) loadAchievementGlobalRates();
 })
+
+watch(
+    () => detailModal.value.open || showAchievementDrawer.value,
+    (locked) => {
+        if (typeof document === 'undefined') return;
+        if (locked) {
+            if (!previousBodyOverflow) previousBodyOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = previousBodyOverflow;
+            previousBodyOverflow = '';
+        }
+    },
+);
 
 const teamDashboard = computed<TeamDashboard>(() => {
     return buildTeamDashboard(teamInfo.value.members as TeamDashboardMember[]);
@@ -2347,6 +2362,9 @@ onBeforeUnmount(() => {
     window.removeEventListener("resize", syncScreenSize);
     stopSpiderJobPolling();
     stopRefreshCooldownTimer();
+    if (typeof document !== 'undefined') {
+        document.body.style.overflow = previousBodyOverflow;
+    }
 })
 </script>
 
@@ -3343,7 +3361,6 @@ onBeforeUnmount(() => {
     padding: 20px;
     overflow: hidden;
     background-color: rgba(15, 23, 42, 0.72);
-    backdrop-filter: blur(3px);
 }
 
 .detail-modal {
@@ -3425,9 +3442,11 @@ onBeforeUnmount(() => {
 }
 
 .detail-table-wrap {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: min(58dvh, 620px);
     border: 1px solid var(--divider-color);
     border-radius: 12px;
+    overscroll-behavior: contain;
 }
 
 .detail-table {
@@ -3753,6 +3772,8 @@ onBeforeUnmount(() => {
     border: 1px solid var(--divider-color);
     border-radius: 14px;
     background-color: var(--section-background-color);
+    content-visibility: auto;
+    contain-intrinsic-size: 92px;
 }
 
 .achievement-detail-card.locked {
@@ -4281,22 +4302,13 @@ onBeforeUnmount(() => {
                     position: relative;
                     width: 100%;
                     height: 200px;
-                    background-color: var(--background-color-2);
+                    background:
+                        radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--neon-cyan) 18%, transparent), transparent 34%),
+                        linear-gradient(135deg, var(--background-color-2), var(--background-color-content));
                     overflow: hidden;
 
                     >.flow-emoji {
-                        position: absolute;
-                        top: 50%;
-                        left: 50%;
-                        transform-origin: center center;
-                        transform: translate(-50%, -50%) rotate(-10deg);
-                        width: 100%;
-                        font-size: 2rem;
-                        text-wrap: nowrap;
-                        letter-spacing: 10px;
-                        line-height: 2;
-                        -webkit-user-select: none;
-                        user-select: none;
+                        display: none;
                     }
                 }
 
@@ -4397,8 +4409,35 @@ onBeforeUnmount(() => {
         grid-template-columns: 1fr;
     }
 
+    .detail-modal-mask {
+        padding: 0;
+    }
+
+    .detail-modal {
+        width: 100%;
+        max-height: 100dvh;
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+    }
+
     .detail-modal-header {
         align-items: flex-start;
+    }
+
+    .detail-table-wrap {
+        max-height: 52dvh;
+        border-radius: 10px;
+    }
+
+    .detail-table {
+        min-width: 620px;
+        font-size: var(--text-xs);
+    }
+
+    .detail-table th,
+    .detail-table td {
+        padding: 8px 10px;
     }
 
     .detail-pagination {
@@ -4460,6 +4499,34 @@ onBeforeUnmount(() => {
         padding: 80px 16px 0 16px;
     }
 
+    .team-header,
+    .team-search,
+    .team-inline-actions,
+    .team-danger-zone {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .team-edit {
+        align-self: flex-start;
+    }
+
+    .team-action {
+        width: 100%;
+    }
+
+    .team-edit-member {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .team-member-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
     .container {
         >.top {
             >.right {
@@ -4479,6 +4546,16 @@ onBeforeUnmount(() => {
         padding: 18px;
         border-left: none;
         border-radius: 18px 18px 0 0;
+    }
+
+    .achievement-drawer-tabs {
+        gap: 6px;
+    }
+
+    .achievement-drawer-tabs .achievement-action-button {
+        min-width: 0;
+        padding: 5px 10px;
+        font-size: var(--text-xs);
     }
 
     .achievement-drawer-header {
@@ -4501,6 +4578,46 @@ onBeforeUnmount(() => {
 
     .achievement-drawer-list {
         padding-bottom: 18px;
+    }
+}
+
+@media (max-width:430px) {
+    .container > .top > .left > .team-card {
+        width: calc(100% - 24px);
+        padding: 14px;
+    }
+
+    .container > .top > .left > .info {
+        width: calc(100% - 24px);
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .stat-scope-note {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .detail-summary {
+        gap: 8px;
+    }
+
+    .detail-summary div {
+        padding: 10px;
+    }
+
+    .achievement-drawer {
+        height: 88dvh;
+        padding: 14px;
+    }
+
+    .achievement-drawer-header h2 {
+        font-size: var(--text-lg);
+    }
+
+    .achievement-detail-card {
+        gap: 10px;
+        border-radius: 12px;
     }
 }
 </style>

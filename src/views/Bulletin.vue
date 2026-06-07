@@ -1055,12 +1055,12 @@ onBeforeUnmount(() => {
   }
 
   .conversation-list {
-    max-height: 260px;
+    max-height: 230px;
   }
 
   .thread-panel {
-    height: min(620px, calc(100vh - 190px));
-    min-height: 420px;
+    height: min(600px, calc(100dvh - 180px));
+    min-height: 380px;
   }
 
   .message-bubble {
@@ -1089,7 +1089,7 @@ onBeforeUnmount(() => {
   }
 
   .conversation-list {
-    max-height: 240px;
+    max-height: 210px;
     padding: 10px;
   }
 
@@ -1112,15 +1112,27 @@ onBeforeUnmount(() => {
   }
 
   .message-list {
-    padding: 12px;
-  }
-
-  .message-compose {
     padding: 10px;
   }
 
+  .message-compose {
+    padding: 8px;
+  }
+
   .message-compose textarea {
-    min-height: 72px;
+    min-height: 60px;
+    max-height: 60px;
+    font-size: var(--text-xs);
+  }
+
+  .message-bubble {
+    max-width: 92%;
+  }
+
+  .bubble-content {
+    padding: 8px 10px;
+    font-size: var(--text-sm);
+    line-height: 1.5;
   }
 
   .bulletin-card {
@@ -1132,6 +1144,49 @@ onBeforeUnmount(() => {
   .invite-actions {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 430px) {
+  .dm-shell {
+    gap: 8px;
+  }
+
+  .conversation-list {
+    max-height: 190px;
+  }
+
+  .thread-panel {
+    height: calc(100dvh - 250px);
+    min-height: 340px;
+  }
+
+  .dm-search {
+    gap: 6px;
+  }
+
+  .dm-search input,
+  .dm-search button,
+  .compose-footer button {
+    padding: 7px 9px;
+    font-size: var(--text-xs);
+  }
+
+  .conversation-item {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .conversation-item img,
+  .system-entry-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .thread-header {
+    gap: 8px;
+    padding: 10px;
   }
 }
 </style>

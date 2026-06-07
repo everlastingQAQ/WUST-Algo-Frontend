@@ -1711,4 +1711,71 @@ onBeforeUnmount(() => {
     }
   }
 }
+
+@media (max-width: 430px) {
+  .dashboardContent {
+    padding: 8px;
+
+    .stat-scope-note {
+      align-items: flex-start;
+      flex-direction: column;
+      font-size: var(--text-xs);
+    }
+
+    .chart-container {
+      height: 280px;
+    }
+
+    .ranking-heading h2 {
+      font-size: 1.1rem;
+    }
+
+    .ranking-switch {
+      gap: 6px;
+    }
+
+    .ranking-switch button {
+      height: 32px;
+      padding: 4px 8px;
+      font-size: var(--text-xs);
+    }
+
+    .ranking-table tbody {
+      gap: 8px;
+    }
+
+    .ranking-table tr {
+      gap: 6px 10px;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .ranking-table td {
+      font-size: var(--text-xs);
+    }
+
+    .rank-badge {
+      min-width: 30px;
+      height: 30px;
+      font-size: var(--text-sm);
+    }
+
+    .rank-user img,
+    .team-avatar-img,
+    .team-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+    }
+
+    .rank-name,
+    .rank-username {
+      max-width: 190px;
+    }
+
+    .pageNavigation .group {
+      flex-wrap: wrap;
+    }
+  }
+}
 </style>
