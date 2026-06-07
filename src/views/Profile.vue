@@ -3338,28 +3338,51 @@ onBeforeUnmount(() => {
     z-index: 80;
     inset: 0;
     display: flex;
+    align-items: stretch;
     justify-content: flex-end;
-    background-color: rgba(0, 0, 0, 0.35);
+    padding: 20px;
+    overflow: hidden;
+    background-color: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(3px);
 }
 
 .detail-modal {
     position: relative;
     width: min(900px, 92vw);
-    height: 100%;
-    overflow: auto;
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 24px;
-    border-left: 1px solid var(--divider-color);
+    border: 1px solid var(--divider-color);
+    border-radius: 18px;
     color: var(--text-default-color);
-    background-color: var(--section-background-color);
-    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.18);
+    background-color: var(--background-color-1);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
 }
 
 .detail-modal-header,
 .detail-pagination {
+    position: sticky;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    background-color: var(--background-color-1);
+}
+
+.detail-modal-header {
+    top: -24px;
+    margin: -24px -24px 0;
+    padding: 24px 24px 14px;
+    border-bottom: 1px solid var(--divider-color);
+}
+
+.detail-pagination {
+    bottom: -24px;
+    margin: 14px -24px -24px;
+    padding: 14px 24px 24px;
+    border-top: 1px solid var(--divider-color);
 }
 
 .detail-modal-header h2 {
@@ -3435,10 +3458,6 @@ onBeforeUnmount(() => {
     color: var(--active-color);
     font-family: inherit;
     overflow-wrap: anywhere;
-}
-
-.detail-pagination {
-    margin-top: 14px;
 }
 
 .achievement-grid {
@@ -4206,9 +4225,26 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width:1000px) {
+    .detail-modal-mask {
+        padding: 10px;
+    }
+
     .detail-modal {
-        width: 100vw;
+        width: 100%;
+        max-height: calc(100dvh - 20px);
         padding: 18px;
+    }
+
+    .detail-modal-header {
+        top: -18px;
+        margin: -18px -18px 0;
+        padding: 18px 18px 12px;
+    }
+
+    .detail-pagination {
+        bottom: -18px;
+        margin: 14px -18px -18px;
+        padding: 12px 18px 18px;
     }
 
     .detail-summary {
