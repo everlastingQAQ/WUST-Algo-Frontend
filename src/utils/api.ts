@@ -196,6 +196,13 @@ export interface SpiderJobResponse {
   [property: string]: any;
 }
 
+export interface SpiderRetryResponse {
+  code: number;
+  message: string;
+  jobId: number;
+  [property: string]: any;
+}
+
 export interface SpiderJobsResponse {
   code: number;
   message: string;
@@ -1765,6 +1772,25 @@ export default class API {
           },
           "获取抓取任务列表失败",
           { code: 0, message: "", data: [], total: 0 },
+        );
+      },
+      retry: async (jobId: number): Promise<stdResponse<SpiderRetryResponse>> => {
+        return apiCall<SpiderRetryResponse>(
+          () =>
+            axios.post<SpiderRetryResponse>(
+              "/api/core/spider/retry",
+              { jobId },
+              { headers: { Authorization: `Bearer ${JWT.token}` } },
+            ),
+          (response) => {
+            if (response.status !== 200) return { message: "重试抓取任务失败" };
+            return {
+              data: response.data,
+              message: response.data.message || "重试任务已加入队列",
+            };
+          },
+          "重试抓取任务失败",
+          { code: 0, message: "", jobId: 0 },
         );
       },
       status: async (userId: number): Promise<stdResponse<SpiderStatusResponse>> => {

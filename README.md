@@ -38,6 +38,8 @@ v1.1.3 聚焦工程质量修复，不改变核心业务功能：
 - 错误提示：新增 API 错误解析兜底，优先展示后端 `message/error/reason/code`，避免只提示“失败”。
 - Toast 兜底：空错误、空成功消息自动降级为可读文案，避免出现空白提示。
 - 版本展示：左下角状态栏版本号更新为 `v1.1.3`，便于区分工程质量修复版本。
+- CI/CD：新增前端 GitHub Actions，自动安装依赖、运行 Vitest、执行生产构建。
+- 抓取交互：单平台刷新加入本地倒计时和失败任务重试入口，避免重复点击造成重复抓取。
 
 ## v1.1.2 更新
 
@@ -88,11 +90,29 @@ npm run dev
 npm run build
 ```
 
+运行前端测试：
+
+```bash
+npm run test
+```
+
 仅预览构建产物：
 
 ```bash
 npm run preview
 ```
+
+## CI/CD
+
+仓库内置 `Frontend CI` 工作流，push、pull request 或手动触发时会执行：
+
+```bash
+npm ci
+npm run test
+npm run build
+```
+
+正式发布由后端仓库的 `Manual Deploy` 工作流统一完成：它会同时拉取前端和后端源码，上传到服务器并调用 `deploy-release.sh` 完成备份、构建、重启和健康检查。
 
 ## 部署
 
@@ -211,9 +231,17 @@ bash deploy/scripts/deploy-frontend.sh
 
 点击“更新 OJ 数据”后，页面会根据后端返回的 `jobId` 轮询任务状态，并展示当前平台和完成进度。后台用户管理页的“抓取任务”区块可查看最近任务，支持按全部、排队、抓取中、失败筛选。
 
+抓取交互规则：
+
+- 单平台刷新只刷新当前平台，不会触发全量刷新。
+- 同一平台刷新后按钮会进入短暂倒计时，避免连续误点。
+- 如果后端已有同平台任务在排队或运行，前端会复用现有任务状态。
+- 后台失败任务可点击“重试”，重新进入抓取队列。
+
 ## 常用维护命令
 
 ```bash
+npm run test
 npm run build
 sudo nginx -t
 sudo systemctl reload nginx

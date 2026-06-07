@@ -318,10 +318,10 @@
                                         <button
                                             v-if="isSelfProfile"
                                             class="sync-refresh-btn"
-                                            :disabled="isRefreshingPlatform(item.platform)"
+                                            :disabled="isRefreshingPlatform(item.platform) || isPlatformRefreshCoolingDown(item.platform)"
                                             @click="updatePlatformLog(item.platform)"
                                         >
-                                            {{ isRefreshingPlatform(item.platform) ? '刷新中' : '刷新' }}
+                                            {{ platformRefreshButtonLabel(item.platform) }}
                                         </button>
                                     </div>
                                 </div>
@@ -601,7 +601,9 @@ const platformPeriodStats = ref<CoreStatisticPlatformPeriodItem[]>([]);
 const syncStatuses = ref<SpiderSyncStatusInfo[]>([]);
 const loadingSyncStatus = ref(false);
 const activeSpiderJob = ref<SpiderJobInfo | null>(null);
+const platformRefreshCooldowns = ref<Record<string, number>>({});
 let spiderJobTimer: number | undefined;
+let refreshCooldownTimer: number | undefined;
 
 const syncScreenSize = () => {
     isCompactScreen.value = window.innerWidth <= 640;
@@ -1943,6 +1945,7 @@ const updateLog = async (platform = "") => {
     Toast.stdResponse(response);
     const jobId = Number(response.data?.jobId || 0);
     if (response.success && jobId > 0) {
+        if (platform) startPlatformRefreshCooldown(platform);
         await pollSpiderJob(jobId);
     }
 }
@@ -1955,6 +1958,44 @@ const updatePlatformLog = async (platform: string) => {
 const isRefreshingPlatform = (platform: string) => {
     if (!activeSpiderJob.value || !["queued", "running"].includes(activeSpiderJob.value.status)) return false;
     return !activeSpiderJob.value.currentPlatform || activeSpiderJob.value.currentPlatform === platform;
+}
+
+const platformRefreshCooldown = (platform: string) => {
+    const until = platformRefreshCooldowns.value[platform] || 0;
+    return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+}
+
+const isPlatformRefreshCoolingDown = (platform: string) => platformRefreshCooldown(platform) > 0;
+
+const platformRefreshButtonLabel = (platform: string) => {
+    if (isRefreshingPlatform(platform)) return "刷新中";
+    const cooldown = platformRefreshCooldown(platform);
+    return cooldown > 0 ? `${cooldown}s` : "刷新";
+}
+
+const startPlatformRefreshCooldown = (platform: string) => {
+    platformRefreshCooldowns.value = {
+        ...platformRefreshCooldowns.value,
+        [platform]: Date.now() + 60_000,
+    };
+    startRefreshCooldownTimer();
+}
+
+const startRefreshCooldownTimer = () => {
+    if (refreshCooldownTimer) return;
+    refreshCooldownTimer = window.setInterval(() => {
+        platformRefreshCooldowns.value = { ...platformRefreshCooldowns.value };
+        if (Object.values(platformRefreshCooldowns.value).every((until) => until <= Date.now())) {
+            stopRefreshCooldownTimer();
+        }
+    }, 1000);
+}
+
+const stopRefreshCooldownTimer = () => {
+    if (refreshCooldownTimer) {
+        window.clearInterval(refreshCooldownTimer);
+        refreshCooldownTimer = undefined;
+    }
 }
 
 const stopSpiderJobPolling = () => {
@@ -2097,6 +2138,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     window.removeEventListener("resize", syncScreenSize);
     stopSpiderJobPolling();
+    stopRefreshCooldownTimer();
 })
 </script>
 

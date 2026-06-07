@@ -91,6 +91,14 @@
               <div class="job-count">
                 {{ job.finishedPlatforms }}/{{ job.totalPlatforms || 0 }}
               </div>
+              <button
+                v-if="job.status === 'failed'"
+                class="action-btn retry-btn"
+                :disabled="retryingJobs[job.jobId]"
+                @click="retrySpiderJob(job.jobId)"
+              >
+                {{ retryingJobs[job.jobId] ? '重试中' : '重试' }}
+              </button>
             </div>
           </div>
         </div>
@@ -112,6 +120,7 @@ const loadingJobs = ref(false);
 const inviteCode = ref("");
 const spiderJobs = ref<SpiderJobInfo[]>([]);
 const jobStatus = ref("");
+const retryingJobs = ref<Record<number, boolean>>({});
 
 const jobFilters = [
   { label: "全部", value: "" },
@@ -161,6 +170,16 @@ const loadSpiderJobs = async () => {
 const setJobStatus = (status: string) => {
   jobStatus.value = status;
   loadSpiderJobs();
+};
+
+const retrySpiderJob = async (jobId: number) => {
+  retryingJobs.value = { ...retryingJobs.value, [jobId]: true };
+  const response = await API.core.spider.retry(jobId);
+  Toast.stdResponse(response);
+  retryingJobs.value = { ...retryingJobs.value, [jobId]: false };
+  if (response.success) {
+    await loadSpiderJobs();
+  }
 };
 
 const jobStatusLabel = (status: string) => {
@@ -329,6 +348,11 @@ onMounted(() => {
 
 .job-filter {
   min-width: 72px;
+}
+
+.retry-btn {
+  min-width: 64px;
+  height: 30px;
 }
 
 .job-list {
