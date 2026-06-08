@@ -33,6 +33,29 @@ export default defineConfig(({ mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url))
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('/echarts/') || id.includes('/vue-echarts/') || id.includes('/zrender/')) {
+                return 'vendor-echarts'
+              }
+              if (id.includes('/@fortawesome/')) {
+                return 'vendor-icons'
+              }
+              if (id.includes('/vue/') || id.includes('/vue-router/') || id.includes('/pinia/')) {
+                return 'vendor-vue'
+              }
+              return 'vendor'
+            }
+            if (id.includes('/src/utils/v11Features')) {
+              return 'feature-v11'
+            }
+          },
+        },
+      },
+    },
     server: {
       // 指定端口 3000
       port: 3000,

@@ -1176,9 +1176,10 @@ const loadAchievementGlobalRates = async () => {
     if (achievementGlobalRateLoaded.value || loadingAchievementGlobalRates.value) return;
 
     const cacheKey = 'wust-achievement-global-rates:v2';
+    const cacheTtl = 30 * 60 * 1000;
     try {
         const cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
-        if (cached?.generatedAt && Date.now() - Number(cached.generatedAt) < 10 * 60 * 1000 && cached?.rates) {
+        if (cached?.generatedAt && Date.now() - Number(cached.generatedAt) < cacheTtl && cached?.rates) {
             achievementGlobalRates.value = cached.rates;
             achievementNightAcPercentile.value = Number(cached.nightPercentiles?.[Number(user.value.userId)] || 0);
             achievementSiteContext.value = cached.siteContexts?.[Number(user.value.userId)] || {};

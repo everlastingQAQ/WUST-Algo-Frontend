@@ -522,7 +522,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import BaseLayout from "@/components/BaseLayout.vue";
 import Calendar from "@/components/Calendar.vue";
 // import Rank from '@/components/Rank.vue';
@@ -539,7 +539,7 @@ import Analyse from "@/utils/analyse";
 import { useUserStore } from "@/stores/user";
 import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import BulletinBoard from "@/components/BulletinBoard.vue";
-import { buildWeeklyReport, type WeeklyReport } from "@/utils/v11Features";
+import type { WeeklyReport } from "@/utils/v11Features";
 
 const userStore = useUserStore();
 const isLogin = computed(() => userStore.isLogin);
@@ -669,10 +669,62 @@ const currentPeriodData = computed<CoreStatisticPeriodItem>(() => {
   return periodData.value[mode.value];
 });
 
-const weeklyReport = computed<WeeklyReport | null>(() => {
-  if (!isLogin.value) return null;
-  return buildWeeklyReport(periodData.value, recentSubmitLogs.value, platformPeriodData.value);
-});
+const weeklyReport = ref<WeeklyReport | null>(null);
+let weeklyReportSignature = "";
+
+const weeklyCacheKey = (userId: number, signature: string) => `wust-weekly-report:${userId}:${signature}`;
+
+const buildWeeklySignature = () => {
+  const userId = Number(JWT.getUserInfo()?.userId || 0);
+  const newestLogTime = Math.max(0, ...recentSubmitLogs.value.map((item) => Number(item.time || 0)));
+  const periodMarker = [
+    periodData.value.ac.thisWeek,
+    periodData.value.ac.lastWeek,
+    periodData.value.ac.total,
+    periodData.value.submit.thisWeek,
+    periodData.value.submit.total,
+  ].join(":");
+  const platformMarker = platformPeriodData.value
+    .map((item) => `${item.platform}:${item.ac.thisWeek}:${item.ac.total}:${item.submit.thisWeek}:${item.submit.total}`)
+    .join("|");
+  return `${userId}:${periodMarker}:${recentSubmitLogs.value.length}:${newestLogTime}:${platformMarker}`;
+};
+
+const refreshWeeklyReport = async () => {
+  if (!isLogin.value) {
+    weeklyReport.value = null;
+    weeklyReportSignature = "";
+    return;
+  }
+  const userId = Number(JWT.getUserInfo()?.userId || 0);
+  const signature = buildWeeklySignature();
+  if (!userId || signature === weeklyReportSignature) return;
+
+  weeklyReportSignature = signature;
+  const cacheKey = weeklyCacheKey(userId, signature);
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(cacheKey) || "null");
+    if (cached?.generatedAt && Date.now() - Number(cached.generatedAt) < 10 * 60 * 1000 && cached?.report) {
+      weeklyReport.value = cached.report;
+      return;
+    }
+  } catch {
+    // Ignore broken cache entries and rebuild below.
+  }
+
+  const { buildWeeklyReport } = await import("@/utils/v11Features");
+  const report = buildWeeklyReport(periodData.value, recentSubmitLogs.value, platformPeriodData.value);
+  weeklyReport.value = report;
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify({ generatedAt: Date.now(), report }));
+  } catch {
+    // Storage can be unavailable in private mode; rendering should still work.
+  }
+};
+
+watch([periodData, recentSubmitLogs, platformPeriodData, isLogin], () => {
+  refreshWeeklyReport();
+}, { deep: true });
 
 const formatRate = (ac: number, submit: number): string => {
   if (!submit) return "0.00%";
