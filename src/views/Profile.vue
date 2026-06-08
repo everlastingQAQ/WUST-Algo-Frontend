@@ -558,7 +558,7 @@
                     <button class="achievement-action-button" :class="{ active: detailModal.mode === 'submit' }" @click="switchPlatformDetailMode('submit')">提交记录</button>
                 </div>
                 <div class="detail-table-wrap" ref="detailTableWrapRef">
-                    <table class="detail-table" v-if="platformDetail && detailModal.mode === 'ac'">
+                    <table class="detail-table detail-table-problems" v-if="platformDetail && detailModal.mode === 'ac'">
                         <thead>
                             <tr>
                                 <th>题目</th>
@@ -578,7 +578,7 @@
                             </tr>
                         </tbody>
                     </table>
-                    <table class="detail-table" v-else-if="platformDetail">
+                    <table class="detail-table detail-table-records" v-else-if="platformDetail">
                         <thead>
                             <tr>
                                 <th>时间</th>
@@ -3542,10 +3542,19 @@ onBeforeUnmount(() => {
 }
 
 .detail-table {
-    width: max(100%, 1040px);
+    width: 100%;
+    min-width: 1040px;
     border-collapse: collapse;
     font-size: var(--text-sm);
     table-layout: fixed;
+}
+
+.detail-table-problems {
+    min-width: 1120px;
+}
+
+.detail-table-records {
+    min-width: 1280px;
 }
 
 .detail-table th,
@@ -3557,35 +3566,66 @@ onBeforeUnmount(() => {
     white-space: nowrap;
 }
 
-.detail-table th:nth-child(1),
-.detail-table td:nth-child(1) {
-    width: 170px;
+.detail-table-problems th:nth-child(1),
+.detail-table-problems td:nth-child(1) {
+    width: 280px;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
-.detail-table th:nth-child(2),
-.detail-table td:nth-child(2) {
-    width: 220px;
+.detail-table-problems th:nth-child(2),
+.detail-table-problems td:nth-child(2) {
+    width: 360px;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
-.detail-table th:nth-child(3),
-.detail-table td:nth-child(3) {
+.detail-table-problems th:nth-child(3),
+.detail-table-problems td:nth-child(3) {
+    width: 180px;
+}
+
+.detail-table-problems th:nth-child(4),
+.detail-table-problems td:nth-child(4),
+.detail-table-problems th:nth-child(5),
+.detail-table-problems td:nth-child(5) {
     width: 120px;
 }
 
-.detail-table th:nth-child(4),
-.detail-table td:nth-child(4) {
+.detail-table-records th:nth-child(1),
+.detail-table-records td:nth-child(1) {
+    width: 170px;
+}
+
+.detail-table-records th:nth-child(2),
+.detail-table-records td:nth-child(2) {
+    width: 260px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.detail-table-records th:nth-child(3),
+.detail-table-records td:nth-child(3) {
+    width: 120px;
+}
+
+.detail-table-records th:nth-child(4),
+.detail-table-records td:nth-child(4) {
     width: 110px;
 }
 
-.detail-table th:nth-child(5),
-.detail-table td:nth-child(5) {
-    width: 260px;
-}
-
-.detail-table th:nth-child(6),
-.detail-table td:nth-child(6) {
+.detail-table-records th:nth-child(5),
+.detail-table-records td:nth-child(5) {
     width: 360px;
     white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.detail-table-records th:nth-child(6),
+.detail-table-records td:nth-child(6) {
+    width: 260px;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .detail-table th {
