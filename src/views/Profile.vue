@@ -203,31 +203,6 @@
                             <div v-if="!loadingTeam && teamInfo.members.length === 0" class="team-empty">暂无团队成员</div>
                         </div>
                     </div>
-                    <div class="recent-visits-card" v-if="visibleRecentProfileVisits.length > 0">
-                        <div class="recent-visits-header">
-                            <div class="recent-visits-title">
-                                <span class="title-icon">
-                                    <font-awesome-icon icon="fa-solid fa-user" />
-                                </span>
-                                <span>最近访问</span>
-                            </div>
-                            <button class="recent-clear-button" @click="clearRecentProfileVisits">清空</button>
-                        </div>
-                        <div class="recent-visits-list">
-                            <button
-                                class="recent-visit-item"
-                                v-for="item in visibleRecentProfileVisits"
-                                :key="item.userId"
-                                @click="goRecentProfile(item.userId)"
-                            >
-                                <img :src="item.avatar || '/images/defaultAvatar.png'" alt="">
-                                <span class="recent-visit-main">
-                                    <span class="recent-visit-name">{{ item.name || item.username || '未知用户' }}</span>
-                                    <span class="recent-visit-meta">@{{ item.username || item.userId }} · {{ formatRecentVisitTime(item.visitedAt) }}</span>
-                                </span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
                 <div class="right">
                     <div class="stat-scope-card">
@@ -786,94 +761,6 @@ interface ActivityItem {
     status: string;
     link: string;
     time: string;
-}
-
-interface RecentProfileVisit {
-    userId: number;
-    username: string;
-    name: string;
-    avatar: string;
-    visitedAt: number;
-}
-
-const recentProfileVisits = ref<RecentProfileVisit[]>([])
-const recentProfileVisitStorageKey = computed(() => `wust-recent-profile-visits:${currentUserId.value || 'guest'}`)
-const visibleRecentProfileVisits = computed(() => {
-    const currentProfileId = Number(user.value.userId || 0);
-    return recentProfileVisits.value
-        .filter((item) => Number(item.userId) > 0 && Number(item.userId) !== currentProfileId)
-        .slice(0, 6);
-})
-
-const loadRecentProfileVisits = () => {
-    if (!currentUserId.value) {
-        recentProfileVisits.value = [];
-        return;
-    }
-    try {
-        const parsed = JSON.parse(localStorage.getItem(recentProfileVisitStorageKey.value) || '[]');
-        recentProfileVisits.value = Array.isArray(parsed)
-            ? parsed
-                .filter((item) => Number(item?.userId || 0) > 0)
-                .slice(0, 12)
-            : [];
-    } catch {
-        recentProfileVisits.value = [];
-    }
-}
-
-const saveRecentProfileVisits = (items: RecentProfileVisit[]) => {
-    if (!currentUserId.value) return;
-    const normalized = items
-        .filter((item) => Number(item.userId || 0) > 0)
-        .reduce<RecentProfileVisit[]>((list, item) => {
-            if (!list.some((visited) => Number(visited.userId) === Number(item.userId))) {
-                list.push(item);
-            }
-            return list;
-        }, [])
-        .slice(0, 12);
-    recentProfileVisits.value = normalized;
-    localStorage.setItem(recentProfileVisitStorageKey.value, JSON.stringify(normalized));
-}
-
-const rememberProfileVisit = (profile: User) => {
-    if (!currentUserId.value || !profile?.userId) return;
-    const record: RecentProfileVisit = {
-        userId: Number(profile.userId),
-        username: profile.username || '',
-        name: profile.name || '',
-        avatar: profile.avatar || '',
-        visitedAt: Date.now(),
-    };
-    saveRecentProfileVisits([
-        record,
-        ...recentProfileVisits.value.filter((item) => Number(item.userId) !== Number(record.userId)),
-    ]);
-}
-
-const clearRecentProfileVisits = () => {
-    saveRecentProfileVisits([]);
-}
-
-const goRecentProfile = (userId: number) => {
-    router.push({ path: '/profile', query: { id: String(userId) } });
-}
-
-const formatRecentVisitTime = (time: number) => {
-    const diff = Date.now() - Number(time || 0);
-    if (!Number.isFinite(diff) || diff < 0) return '刚刚';
-    const minute = 60 * 1000;
-    const hour = 60 * minute;
-    const day = 24 * hour;
-    if (diff < minute) return '刚刚';
-    if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`;
-    if (diff < day) return `${Math.floor(diff / hour)} 小时前`;
-    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
-    return new Date(Number(time)).toLocaleDateString('zh-CN', {
-        month: '2-digit',
-        day: '2-digit',
-    });
 }
 
 const refreshTrainingStatuses = () => {
@@ -1849,7 +1736,6 @@ const getUserInfo = async () => {
 
     if (response.success) {
         user.value = response.data;
-        rememberProfileVisit(response.data);
         loadPermanentAchievements();
         loadPasswordChangeCount();
         loadingProfile.value = false;
@@ -2549,7 +2435,6 @@ const logout = async () => {
 onMounted(() => {
     syncScreenSize();
     window.addEventListener("resize", handleProfileResize);
-    loadRecentProfileVisits();
     // 该页面有登录路由守卫
     if (route.query.id) {
         user.value.userId = Number(route.query.id);
@@ -2783,19 +2668,6 @@ onBeforeUnmount(() => {
             >.team-card {
                 gap: 14px;
             }
-
-            >.recent-visits-card {
-                display: flex;
-                flex-direction: column;
-                width: 100%;
-                box-sizing: border-box;
-                gap: 12px;
-                padding: 16px;
-                border: 1px solid var(--divider-color);
-                border-radius: 12px;
-                background: var(--background-color-content);
-                box-shadow: 0 0 20px rgba(0, 0, 0, 0.06);
-            }
         }
 
         >.right {
@@ -2812,107 +2684,6 @@ onBeforeUnmount(() => {
         flex-direction: row;
         gap: 10px;
     }
-}
-
-.recent-visits-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.recent-visits-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-default-color);
-    font-size: var(--text-sm);
-    font-weight: 900;
-}
-
-.recent-visits-title .title-icon {
-    color: var(--active-color);
-}
-
-.recent-clear-button {
-    height: 28px;
-    padding: 0 10px;
-    border: 1px solid var(--divider-color);
-    border-radius: 8px;
-    color: var(--text-light-color);
-    background-color: var(--background-color-1);
-    font-family: inherit;
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.recent-clear-button:hover {
-    border-color: var(--section-active-color);
-    color: var(--text-reverse-color);
-    background-color: var(--section-active-color);
-}
-
-.recent-visits-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.recent-visit-item {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px;
-    border: none;
-    border-radius: 10px;
-    color: var(--text-default-color);
-    background-color: transparent;
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.recent-visit-item:hover {
-    background-color: var(--section-background-color);
-    transform: translateX(2px);
-}
-
-.recent-visit-item img {
-    width: 34px;
-    height: 34px;
-    border: 1px solid var(--divider-color);
-    border-radius: 50%;
-    object-fit: cover;
-    background-color: var(--section-background-color);
-}
-
-.recent-visit-main {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.recent-visit-name,
-.recent-visit-meta {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.recent-visit-name {
-    color: var(--text-default-color);
-    font-size: var(--text-sm);
-    font-weight: 800;
-}
-
-.recent-visit-meta {
-    color: var(--text-light-color);
-    font-size: var(--text-xs);
 }
 
 .ranks {
@@ -4656,10 +4427,6 @@ onBeforeUnmount(() => {
         >.team-card {
             width: calc(100% - 36px);
         }
-
-        >.recent-visits-card {
-            width: calc(100% - 36px);
-        }
     }
 
     .container>.top>.right {
@@ -5055,11 +4822,6 @@ onBeforeUnmount(() => {
 
 @media (max-width:430px) {
     .container > .top > .left > .team-card {
-        width: calc(100% - 24px);
-        padding: 14px;
-    }
-
-    .container > .top > .left > .recent-visits-card {
         width: calc(100% - 24px);
         padding: 14px;
     }
