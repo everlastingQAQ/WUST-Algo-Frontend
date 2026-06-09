@@ -885,12 +885,10 @@ const loadPasswordChangeCount = () => {
     passwordChangeCount.value = Number(localStorage.getItem(key) || 0);
 }
 
-const isWrongAnswerStatus = (status: string) => {
-    const normalized = String(status || '').trim().toLowerCase();
-    return normalized === 'wa' || normalized.includes('wrong answer') || normalized.includes('答案错误');
+const toSafeNumber = (value: unknown) => {
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? parsed : 0;
 }
-
-const countWrongAnswers = (logs: CoreSubmitLogGetByIdData[]) => logs.filter((log) => isWrongAnswerStatus(log.status)).length;
 
 const rawAchievements = computed<AchievementBadge[]>(() => {
     return buildAchievementBadges(profilePeriodData.value, recentSubmitLogs.value, platformPeriodStats.value, {
@@ -1197,15 +1195,6 @@ const activities = ref<ActivityItem[]>([
     },
 ])
 
-const chunkedMap = async <T, R>(items: T[], size: number, mapper: (item: T) => Promise<R>): Promise<R[]> => {
-    const results: R[] = [];
-    for (let i = 0; i < items.length; i += size) {
-        const chunk = items.slice(i, i + size);
-        results.push(...await Promise.all(chunk.map(mapper)));
-    }
-    return results;
-}
-
 const getTeamInfo = async () => {
     loadingTeam.value = true;
     teamPanelMode.value = 'idle';
@@ -1231,23 +1220,26 @@ const getTeamInfo = async () => {
         loadingTeam.value = false;
         return;
     }
-    const members = await chunkedMap(teamResponse.data.users, 6, async (member): Promise<TeamMember> => {
-        const response = await API.core.statistic.period(member.userId);
-        const submitLogResponse = await API.core.submitLog.getById(member.userId, 0, 900);
-        const stats = response.success ? response.data.data : null;
-        const logs = submitLogResponse.success ? submitLogResponse.data.data : [];
+    const memberIds = teamResponse.data.users.map((member) => Number(member.userId)).filter((id) => Number.isFinite(id) && id > 0);
+    const teamStatsResponse = memberIds.length > 0 ? await API.core.statistic.teamPeriod(memberIds) : null;
+    const statsByUserId = new Map(
+        (teamStatsResponse?.success ? teamStatsResponse.data.members : []).map((item) => [Number(item.userId), item]),
+    );
+    const teamTotalStats = teamStatsResponse?.success ? teamStatsResponse.data.total : null;
+    const members = teamResponse.data.users.map((member): TeamMember => {
+        const stats = statsByUserId.get(Number(member.userId));
         return {
             userId: Number(member.userId),
             avatar: member.avatar,
             name: member.name,
             username: member.username,
-            acTotal: stats ? Number(stats.ac.total) : 0,
-            submitTotal: stats ? Number(stats.submit.total) : 0,
-            waTotal: countWrongAnswers(logs),
-            weekAc: stats ? Number(stats.ac.thisWeek) : 0,
-            weekSubmit: stats ? Number(stats.submit.thisWeek) : 0,
-            monthAc: stats ? Number(stats.ac.thisMonth) : 0,
-            monthSubmit: stats ? Number(stats.submit.thisMonth) : 0
+            acTotal: toSafeNumber(stats?.ac?.total),
+            submitTotal: toSafeNumber(stats?.submit?.total),
+            waTotal: toSafeNumber(stats?.waTotal),
+            weekAc: toSafeNumber(stats?.ac?.thisWeek),
+            weekSubmit: toSafeNumber(stats?.submit?.thisWeek),
+            monthAc: toSafeNumber(stats?.ac?.thisMonth),
+            monthSubmit: toSafeNumber(stats?.submit?.thisMonth)
         };
     });
     const sortedMembers = members.sort((a, b) => b.acTotal - a.acTotal || b.submitTotal - a.submitTotal || a.userId - b.userId);
@@ -1257,8 +1249,8 @@ const getTeamInfo = async () => {
         name: teamResponse.data.name || `团队 ${groupId}`,
         avatar: teamResponse.data.avatar || '',
         ownerId: Number(teamResponse.data.ownerId) || 0,
-        acTotal: sortedMembers.reduce((sum, item) => sum + item.acTotal, 0),
-        submitTotal: sortedMembers.reduce((sum, item) => sum + item.submitTotal, 0),
+        acTotal: teamTotalStats ? toSafeNumber(teamTotalStats.ac?.total) : sortedMembers.reduce((sum, item) => sum + item.acTotal, 0),
+        submitTotal: teamTotalStats ? toSafeNumber(teamTotalStats.submit?.total) : sortedMembers.reduce((sum, item) => sum + item.submitTotal, 0),
         members: sortedMembers
     };
     teamForm.value = {

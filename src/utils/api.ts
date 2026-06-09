@@ -372,6 +372,20 @@ export interface CoreStatisticPlatformPeriodResponse {
   [property: string]: any;
 }
 
+export interface CoreStatisticTeamPeriodResponse {
+  code: number;
+  message: string;
+  members: CoreStatisticTeamPeriodItem[];
+  total: CoreStatisticTeamPeriodItem;
+}
+
+export interface CoreStatisticTeamPeriodItem {
+  userId: number;
+  ac: CoreStatisticPeriodItem;
+  submit: CoreStatisticPeriodItem;
+  waTotal: number;
+}
+
 export interface CoreStatisticPlatformPeriodItem {
   platform: platform;
   ac: CoreStatisticPeriodItem;
@@ -2202,6 +2216,49 @@ export default class API {
           },
           "获取平台统计数据失败",
           { code: "", data: [] },
+        );
+      },
+      teamPeriod: async (
+        userIds: number[],
+      ): Promise<stdResponse<CoreStatisticTeamPeriodResponse>> => {
+        const emptyPeriodItem = {
+          lastMonth: 0,
+          lastWeek: 0,
+          lastYear: 0,
+          thisMonth: 0,
+          thisWeek: 0,
+          thisYear: 0,
+          today: 0,
+          total: 0,
+        };
+        return apiCall<CoreStatisticTeamPeriodResponse>(
+          () =>
+            axios.get<CoreStatisticTeamPeriodResponse>(
+              "/api/core/statistic/team-period",
+              {
+                params: { userIds: userIds.join(",") },
+              },
+            ),
+          (response) => {
+            if (response.status !== 200)
+              return { message: "获取团队统计数据失败" };
+            return {
+              data: response.data,
+              message: response.data.message || "获取团队统计数据成功",
+            };
+          },
+          "获取团队统计数据失败",
+          {
+            code: 0,
+            message: "",
+            members: [],
+            total: {
+              userId: 0,
+              ac: emptyPeriodItem,
+              submit: emptyPeriodItem,
+              waTotal: 0,
+            },
+          },
         );
       },
       platformDetail: async (
