@@ -162,6 +162,9 @@ const emit = defineEmits<{
 
 <style scoped>
 .ACCalendar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     -webkit-user-select: none;
     user-select: none;
 }
@@ -179,10 +182,18 @@ const emit = defineEmits<{
     position: relative;
     flex-direction: row;
     gap: 5px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .calendar {
     position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 0 0 0 40px;
 }
 
@@ -227,9 +238,13 @@ const emit = defineEmits<{
     display: flex;
     flex-direction: column;
     position: relative;
-    max-width: calc(100vw - 100px);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     padding: 0 0 5px 0;
-    overflow: auto
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .dayCharts::-webkit-scrollbar {
@@ -285,7 +300,7 @@ const emit = defineEmits<{
 }
 
 .yearSelector {
-    max-width: calc(100vw - 60px);
+    max-width: 100%;
     height: calc((10px * 7) + (2px * 6) + 20px);
     position: relative;
     display: flex;
@@ -329,6 +344,7 @@ const emit = defineEmits<{
 @media (max-width:900px) {
     .ACCalendar .content {
         flex-direction: column;
+        overflow: visible;
     }
 
     .yearSelector {

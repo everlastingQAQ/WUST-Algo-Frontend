@@ -1285,6 +1285,12 @@ onBeforeUnmount(() => {
 
 .heatmap-home-section {
   order: 1;
+  min-width: 0;
+}
+
+.heatmap-home-section .section-secondary-container {
+  overflow: hidden;
+  min-width: 0;
 }
 
 .weekly-home-section {
