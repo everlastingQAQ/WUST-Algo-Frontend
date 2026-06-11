@@ -4173,28 +4173,45 @@ onBeforeUnmount(() => {
     gap: 10px;
 
     >.contest {
-        display: flex;
-        justify-content: space-between;
-        flex-direction: row;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
 
         >.info {
-            flex-grow: 1;
+            min-width: 0;
+
             >.platform {
+                overflow: hidden;
                 color: var(--text-light-color);
                 font-size: var(--text-sm);
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             >.title {
+                overflow: hidden;
                 color: var(--text-default-color);
                 font-size: var(--text-lg);
                 font-weight: bold;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
         }
 
         >.actions{
             display: flex;
             flex-direction: row;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
             gap: 5px;
+
+            >.btn {
+                height: 30px;
+                min-height: 30px;
+                margin: 0;
+                white-space: nowrap;
+            }
         }
     }
 }
