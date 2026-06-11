@@ -362,6 +362,7 @@ const actionLabels: Record<string, string> = {
   "spider.set": "绑定 OJ 账号",
   "statistic.clear_cache": "清理统计缓存",
   "snapshot.save": "保存功能快照",
+  "snapshot.cleanup": "清理功能快照",
 };
 
 const jobFilters = [
